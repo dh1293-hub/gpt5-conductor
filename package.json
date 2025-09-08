@@ -9,14 +9,21 @@
     "run-typecheck": "node scripts/run-typecheck.mjs",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/app/bootstrap.js",
-    "check:ts": "node ./scripts/check-ts-version.mjs"
+    "check:ts": "node ./scripts/check-ts-version.mjs",
+    "prebuild": "node ./scripts/check-ts-version.mjs",
+    "run-tests": "vitest run",
+    "run-smoke": "vitest run tests/e2e --reporter=dot",
+    "run-contract": "vitest run tests/contract --reporter=dot"
   },
   "devDependencies": {
-    "@types/node": "20.11.24",
+    "@types/node": "^20.11.24",
     "@typescript-eslint/eslint-plugin": "6.21.0",
     "@typescript-eslint/parser": "6.21.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "eslint": "8.57.0",
-    "typescript": "5.4.5"
+    "typescript": "5.4.5",
+    "vitest": "^3.2.4"
   },
   "overrides": {
     "typescript": "5.4.5"
