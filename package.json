@@ -13,7 +13,9 @@
     "prebuild": "node ./scripts/check-ts-version.mjs",
     "run-tests": "vitest run",
     "run-smoke": "vitest run tests/e2e --reporter=dot",
-    "run-contract": "vitest run tests/contract --reporter=dot"
+    "run-contract": "vitest run tests/contract --reporter=dot",
+    "release": "standard-version",
+    "release:first": "standard-version --release-as 0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
@@ -22,6 +24,7 @@
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "eslint": "8.57.0",
+    "standard-version": "^9.5.0",
     "typescript": "5.4.5",
     "vitest": "^3.2.4"
   },
