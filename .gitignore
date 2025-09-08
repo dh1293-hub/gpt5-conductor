@@ -1,14 +1,14 @@
+﻿# deps
+/node_modules/
 
-coverage/
-logs/*.log
+# build outputs
+/dist/
+/artifacts/
 
-dist/
+# logs
+/logs/
+*.log
 
-__pycache__/
-
-*.py[cod]
-
-.pytest_cache/
-
-logs/*
-!logs/.gitkeep
+# env
+.env
+.env.*
