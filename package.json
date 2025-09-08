@@ -15,7 +15,8 @@
     "run-smoke": "vitest run tests/e2e --reporter=dot",
     "run-contract": "vitest run tests/contract --reporter=dot",
     "run-hardening": "node ./dist/app/hardening.js --mode=baseline",
-    "run-hardening-fault": "node ./dist/app/hardening.js --mode=fault --inject=pii,crash"
+    "run-hardening-fault": "node ./dist/app/hardening.js --mode=fault --inject=pii,crash",
+    "run-hardening-metrics": "node ./dist/app/hardening.js --mode=metrics --intervalMs=2000 --durationMs=10000"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { hrtime } from "node:process";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { cpus } from "node:os";
 
 type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR" | "FATAL";
 
@@ -16,9 +17,7 @@ function ensureLogDir() {
 // Simple PII masking: emails + common token patterns
 export function maskPII(input: string): string {
   let out = input;
-  // email
   out = out.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "***@***");
-  // token/api keys like: token=xxxx, bearer xxxxx, sk-xxxxx, 16+ hex/base62
   out = out.replace(/\b(sk-[A-Za-z0-9_\-]{12,}|bearer\s+[A-Za-z0-9_\-]{12,}|token\s*=\s*[A-Za-z0-9_\-]{12,})\b/gi, "***");
   out = out.replace(/\b[A-F0-9]{16,}\b/gi, "***");
   return out;
@@ -27,7 +26,7 @@ export function maskPII(input: string): string {
 function log(level: LogLevel, message: string, extra: Record<string, unknown> = {}) {
   ensureLogDir();
   const now = new Date().toISOString();
-  const entry = {
+  const entry: any = {
     timestamp: now,
     tz: "Asia/Seoul",
     level,
@@ -41,12 +40,15 @@ function log(level: LogLevel, message: string, extra: Record<string, unknown> = 
     host: { pid: process.pid },
     message: maskPII(message),
   };
+  // allow optional metrics fields
+  if ("cpuPct" in extra) entry.cpuPct = extra["cpuPct"];
+  if ("memMB" in extra) entry.memMB = extra["memMB"];
   appendFileSync(LOG_FILE, JSON.stringify(entry) + "\n", { encoding: "utf-8" });
 }
 
 let currentTraceId = randomUUID();
 
-// ESM 환경에서 "직접 실행" 판별
+// ESM "main" detection
 const isMain = (() => {
   try {
     const thisFile = fileURLToPath(import.meta.url);
@@ -58,15 +60,17 @@ const isMain = (() => {
 })();
 
 function parseArgs(argv: string[]) {
-  // e.g. --mode=baseline | fault  --inject=pii,crash
   const args: Record<string, string> = {};
   argv.forEach((a) => {
     const m = a.match(/^--([^=]+)=(.*)$/);
     if (m) args[m[1]] = m[2];
   });
+  const num = (k: string, def: number) => (args[k] ? Number(args[k]) : def);
   return {
-    mode: (args["mode"] ?? "baseline") as "baseline" | "fault",
+    mode: (args["mode"] ?? "baseline") as "baseline" | "fault" | "metrics",
     inject: new Set((args["inject"] ?? "").split(",").filter(Boolean)),
+    intervalMs: num("intervalMs", 5000),
+    durationMs: num("durationMs", 20000),
   };
 }
 
@@ -87,6 +91,51 @@ function probeMemory(): { rss: number } {
   const rss = process.memoryUsage().rss;
   return { rss };
 }
+
+// ---------- 7-B: periodic metrics ----------
+function createCpuMeter() {
+  let lastCpu = process.cpuUsage();
+  let lastT = hrtime.bigint();
+  const cores = Math.max(1, cpus().length);
+  return () => {
+    const curCpu = process.cpuUsage();
+    const curT = hrtime.bigint();
+    const cpuMicros = (curCpu.user - lastCpu.user) + (curCpu.system - lastCpu.system); // µs
+    const wallMicros = Number(curT - lastT) / 1000; // ns -> µs
+    lastCpu = curCpu; lastT = curT;
+    if (wallMicros <= 0) return 0;
+    const pct = (cpuMicros / wallMicros) * 100 / cores;
+    // clamp
+    return Math.max(0, Math.min(100, pct));
+  };
+}
+
+function sampleMetrics(nextCpuPct: () => number) {
+  const memMB = Math.round((process.memoryUsage().rss / (1024 * 1024)) * 10) / 10;
+  const cpuPct = Math.round(nextCpuPct() * 100) / 100;
+  return { memMB, cpuPct };
+}
+
+async function metrics(intervalMs: number, durationMs: number) {
+  const meter = createCpuMeter();
+  const endAt = Date.now() + Math.max(intervalMs, durationMs);
+  log("INFO", "Metrics start", { action: "metrics_start" });
+  while (true) {
+    const m = sampleMetrics(meter);
+    log("INFO", `metrics cpu=${m.cpuPct}% mem=${m.memMB}MB`, {
+      action: "metrics",
+      outcome: "ok",
+      cpuPct: m.cpuPct,
+      memMB: m.memMB,
+    });
+    const now = Date.now();
+    if (now + intervalMs > endAt) break;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  log("INFO", "Metrics done", { action: "metrics_done", outcome: "ok" });
+  return 0;
+}
+// -------------------------------------------
 
 function baseline() {
   const t0 = hrtime.bigint();
@@ -135,9 +184,14 @@ function fault(inject: Set<string>) {
 }
 
 if (isMain) {
-  ensureLogDir();
-  const { mode, inject } = parseArgs(process.argv.slice(2));
-  currentTraceId = randomUUID();
-  const code = mode === "baseline" ? baseline() : fault(inject);
-  process.exit(code);
+  (async () => {
+    ensureLogDir();
+    const { mode, inject, intervalMs, durationMs } = parseArgs(process.argv.slice(2));
+    currentTraceId = randomUUID();
+    let code = 0;
+    if (mode === "baseline") code = baseline();
+    else if (mode === "fault") code = fault(inject);
+    else code = await metrics(intervalMs, durationMs);
+    process.exit(code);
+  })();
 }
