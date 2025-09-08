@@ -54,7 +54,7 @@ class ActionOrchestrator:
                 op = a.get("op")
                 try:
                     if op == "LOCATE":
-                        point, ev = self.ports.locate(
+                        point, ev = self.ports.locator.locate(
                             by=a["by"],
                             query=a.get("query"),
                             area=tuple(a["area"]) if a.get("area") else None,
@@ -133,3 +133,4 @@ class ActionOrchestrator:
             "steps": steps_out
         }
         return out
+
