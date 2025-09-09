@@ -35,9 +35,9 @@ ExecStr "npm run run-smoke"
 ExecStr "npm run run-contract"
 ExecStr "npm run run-tests"
 
-# 3) 릴리스
-$svCmd = "npx standard-version --release-as $Type"
-if ($DryRun) { $svCmd = "$svCmd --dry-run" }
+# 3) 릴리스 (변수 명시 선언 후 사용)
+[string]$svCmd = "npx standard-version --release-as $Type"
+if ($DryRun.IsPresent) { $svCmd = "$svCmd --dry-run" }
 Info ("SV CMD: {0}" -f $svCmd)
 ExecStr $svCmd
 
