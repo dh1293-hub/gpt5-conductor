@@ -9,8 +9,11 @@ on:
     paths:
       - "CHANGELOG.md"
 
+# ⛑ 필요한 권한 (contents + actions(재시도) + issues(알림))
 permissions:
   contents: write
+  actions: write
+  issues: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -20,13 +23,15 @@ jobs:
   release:
     if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, 'chore(release)') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
     steps:
       - name: Checkout (full history for tags)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 실행 링크를 요약/로그에 남겨서 찾기 쉽게
+      # 실행 링크를 로그/요약에 남겨서 찾기 쉽게
       - name: Print run URL
         run: echo "Run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
@@ -102,3 +107,40 @@ jobs:
             ### 🗓 Release Date
             - ${{ env.REL_DATE }} (KST)
           files: build.zip
+
+      # 🔁 실패 시 1회 자동 재시도(실패한 job들만)
+      - name: Auto re-run failed jobs once
+        if: ${{ failure() && github.run_attempt == '1' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.reRunWorkflowFailedJobs({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId
+            })
+            core.notice('Triggered auto re-run for failed jobs (attempt 2/2).')
+
+      # 🚨 2번째도 실패하면 이슈 자동 생성(알림)
+      - name: Open failure issue with run link
+        if: ${{ failure() && github.run_attempt != '1' }}
+        uses: actions/github-script@v7
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const title = `Release workflow failed (attempt ${process.env.GITHUB_RUN_ATTEMPT})`;
+            const body = [
+              `**Run**: ${process.env.RUN_URL}`,
+              `**Ref**: ${context.ref}`,
+              `**Actor**: ${context.actor}`,
+              `**Commit**: ${context.sha}`
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['release','failed']
+            })
+            core.error('Opened issue for failed release run.')
