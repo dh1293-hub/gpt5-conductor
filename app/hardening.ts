@@ -18,7 +18,7 @@ function ensureLogDir() {
 export function maskPII(input: string): string {
   let out = input;
   out = out.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "***@***");
-  out = out.replace(/\b(sk-[A-Za-z0-9_\-]{12,}|bearer\s+[A-Za-z0-9_\-]{12,}|token\s*=\s*[A-Za-z0-9_\-]{12,})\b/gi, "***");
+  out = out.replace(/\b(sk-[A-Za-z0-9_-]{12,}|bearer\s+[A-Za-z0-9_-]{12,}|token\s*=\s*[A-Za-z0-9_-]{12,})\b/gi, "***");
   out = out.replace(/\b[A-F0-9]{16,}\b/gi, "***");
   return out;
 }
@@ -120,7 +120,7 @@ async function metrics(intervalMs: number, durationMs: number) {
   const meter = createCpuMeter();
   const endAt = Date.now() + Math.max(intervalMs, durationMs);
   log("INFO", "Metrics start", { action: "metrics_start" });
-  while (true) {
+  for (;;){
     const m = sampleMetrics(meter);
     log("INFO", `metrics cpu=${m.cpuPct}% mem=${m.memMB}MB`, {
       action: "metrics",
@@ -195,3 +195,4 @@ if (isMain) {
     process.exit(code);
   })();
 }
+
