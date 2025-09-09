@@ -36,10 +36,10 @@ ExecStr "npm run run-contract"
 ExecStr "npm run run-tests"
 
 # 3) 릴리스
-$sv = "npx standard-version --release-as $Type"
-if ($DryRun) { $sv += " --dry-run" }
-Info $sv
-ExecStr $sv
+$svCmd = "npx standard-version --release-as $Type"
+if ($DryRun) { $svCmd = "$svCmd --dry-run" }
+Info ("SV CMD: {0}" -f $svCmd)
+ExecStr $svCmd
 
 # 4) 푸시(태그 포함)
 Info "Pushing commits & tags..."
