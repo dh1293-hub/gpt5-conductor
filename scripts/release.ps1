@@ -5,10 +5,13 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Invoke-Git {
-  param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Args)
-  & git @Args
+  param(
+    [Parameter(ValueFromRemainingArguments=$true, Position=0)]
+    [string[]]$gitArgs
+  )
+  & git @gitArgs
   $code = $LASTEXITCODE
-  if ($code -ne 0) { throw "git $($Args -join ' ') failed (exit $code)" }
+  if ($code -ne 0) { throw "git $($gitArgs -join ' ') failed (exit $code)" }
 }
 
 function Bump-Version($v, $lvl) {
@@ -23,8 +26,9 @@ function Bump-Version($v, $lvl) {
 }
 
 Invoke-Git fetch --all --tags --prune
+
 $last = (& git describe --tags --abbrev=0) 2>$null
-if (-not $last) { $last = "v0.1.0" }
+if (-not $last) { $last = "v0.1.0" }  # 최초 기본값
 
 $dirty = & git status --porcelain
 if ($dirty) {
@@ -38,7 +42,8 @@ Write-Host "Last: $last  ->  New: $new" -ForegroundColor Cyan
 Invoke-Git tag -a $new -m "release: $new"
 
 New-Item -ItemType Directory -Force release_notes | Out-Null
-& git log "$last..HEAD" --pretty=format:"- %s (%h)" | Out-File -Encoding utf8 "release_notes/$($new.TrimStart('v')).txt"
+& git log "$last..HEAD" --pretty=format:"- %s (%h)" |
+  Out-File -Encoding utf8 "release_notes/$($new.TrimStart('v')).txt"
 
 Invoke-Git push --follow-tags origin main
 
