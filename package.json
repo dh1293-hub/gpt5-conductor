@@ -22,7 +22,8 @@
         "release:minor": "npm run release -- --release-as minor",
         "release:major": "npm run release -- --release-as major",
         "prerelease": "npm run run-lint && npm run run-typecheck && npm run build && npm run run-tests",
-        "postrelease": "git push --follow-tags origin main"
+        "postrelease": "git push --follow-tags origin main",
+        "release:dry": "standard-version --dry-run"
     },
     "devDependencies": {
         "@eslint/eslintrc": "2.1.4",
@@ -31,7 +32,7 @@
         "@typescript-eslint/parser": "6.21.0",
         "ajv": "^8.17.1",
         "ajv-formats": "^3.0.1",
-        "conventional-changelog-conventionalcommits": "^9.1.0",
+        "conventional-changelog-conventionalcommits": "^6.1.0",
         "eslint": "8.57.0",
         "standard-version": "^9.5.0",
         "typescript": "5.4.5",
