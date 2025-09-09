@@ -1,22 +1,45 @@
-﻿name: release
+name: release
+
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
+  schedule:
+    # 매일 03:30 KST (UTC 18:30)
+    - cron: "30 18 * * *"
+
 permissions:
   contents: write
+
 jobs:
-  gh-release:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Node
+      - name: Checkout (full history for tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install deps (optional)
-        if: hashFiles('package-lock.json') != ''
+
+      - name: Install deps (CI)
         run: npm ci
+
+      - name: Configure git bot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Dry run (standard-version)
+        run: npx standard-version --dry-run
+
+      - name: Bump & tag (patch)
+        run: npx standard-version --release-as patch
+
+      - name: Push with tags
+        run: git push --follow-tags origin HEAD:main
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
