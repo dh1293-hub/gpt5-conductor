@@ -30,3 +30,5 @@ All notable changes to this project will be documented in this file.
 * **dsl:** switch to unevaluatedProperties=false for actions; allow Common fields; fix test assertion ([f41604c](https://github.com/dh1293-hub/gpt5-conductor/commit/f41604c23a3f6d6ee1e3d1cd8709ec5a88505701))
 
 <!-- chore: trigger release workflow test -->
+
+<!-- trigger release -->
