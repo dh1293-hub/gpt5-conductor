@@ -1,0 +1,40 @@
+name: Auto Release (rel bot)
+
+on:
+  schedule:
+    - cron: '0 2 * * *'      # 매일 11:00 KST (=02:00 UTC)
+  push:
+    paths:
+      - 'CHANGELOG.md'
+      - 'scripts/PS-REL-ONE.ps1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Pester tests (contract/log)
+        shell: pwsh
+        run: .\scripts\PS-TEST.ps1
+
+      - name: Dry-run (logs only)
+        shell: pwsh
+        run: .\scripts\PS-REL-ONE.ps1
+
+      - name: Live release (create-or-update)
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}  # 선택
+        run: .\scripts\PS-REL-ONE.ps1 -Live
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: rel-logs
+          path: logs/rel-*.jsonl
