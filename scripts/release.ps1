@@ -1,4 +1,4 @@
-﻿param(
+param(
   [ValidateSet("patch","minor","major")] [string]$Type = "patch",
   [switch]$DryRun
 )
@@ -6,10 +6,14 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Warn($msg) { Write-Host $msg -ForegroundColor DarkYellow }
-function Info($msg) { Write-Host $msg -ForegroundColor Cyan }
-function Ok($msg)   { Write-Host $msg -ForegroundColor Green }
-function Fail($msg) { Write-Host $msg -ForegroundColor Red; exit 2 }
+function Warn($m){ Write-Host $m -ForegroundColor DarkYellow }
+function Info($m){ Write-Host $m -ForegroundColor Cyan }
+function Ok($m){ Write-Host $m -ForegroundColor Green }
+function Fail($m){ Write-Host $m -ForegroundColor Red; exit 2 }
+function Exec($exe, $args){
+  & $exe @args
+  if ($LASTEXITCODE -ne 0) { Fail "command failed: $exe $($args -join ' ')" }
+}
 
 Warn "⚠ Running release in current PowerShell session. Keep this window open."
 
@@ -17,41 +21,42 @@ Warn "⚠ Running release in current PowerShell session. Keep this window open."
 $repo = (Resolve-Path ".").Path
 if (-not (Test-Path "$repo\package.json")) { Fail "Not at repo root. Abort." }
 
-# 1) 로컬/원격 동기화 & 클린 체크
+# 0-1) 도구 경로(PS5 호환: npm.ps1 회피)
+$npm = (Get-Command npm.cmd -ErrorAction SilentlyContinue)?.Source
+if (-not $npm) { $npm = (Get-Command npm -ErrorAction SilentlyContinue)?.Source }
+if (-not $npm) { Fail "npm not found" }
+
+$npx = (Get-Command npx.cmd -ErrorAction SilentlyContinue)?.Source
+if (-not $npx) { $npx = (Get-Command npx -ErrorAction SilentlyContinue)?.Source }
+if (-not $npx) { Fail "npx not found" }
+
+# 1) 원격 동기화 & 클린 체크
 Info "Fetching remote tags..."
 git fetch --all --tags --prune | Out-Null
 
 $st = git status --porcelain
 if ($st) { Fail "Working tree not clean. Commit or stash first." }
 
-# 2) 사전 게이트(테스트)
+# 2) 게이트
 Info "Running gates: build → smoke → contract → tests"
-npm run build
-if ($LASTEXITCODE -ne 0) { Fail "build failed" }
+Exec $npm @('run','build')
+Exec $npm @('run','run-smoke')
+Exec $npm @('run','run-contract')
+Exec $npm @('run','run-tests')
 
-npm run run-smoke
-if ($LASTEXITCODE -ne 0) { Fail "smoke failed" }
+# 3) 릴리스
+$svArgs = @('standard-version')
+if ($DryRun) { $svArgs += '--dry-run' }
+$svArgs += @('--release-as', $Type)
 
-npm run run-contract
-if ($LASTEXITCODE -ne 0) { Fail "contract failed" }
+Info "npx $($svArgs -join ' ')"
+Exec $npx $svArgs
 
-npm run run-tests
-if ($LASTEXITCODE -ne 0) { Fail "tests failed" }
-
-# 3) 릴리스 수행
-$svArgs = @()
-if ($DryRun) { $svArgs += "--dry-run" }
-$svArgs += @("--release-as", $Type)
-
-Info "standard-version $($svArgs -join ' ')"
-npx --yes standard-version @svArgs
-if ($LASTEXITCODE -ne 0) { Fail "standard-version failed" }
-
-# 4) 원격 푸시(태그 포함)
+# 4) 푸시(태그 포함)
 Info "Pushing commits & tags..."
 git push --follow-tags origin main
 
-# 5) 결과 출력
+# 5) 결과
 $v = (node -p "require('./package.json').version")
 Ok  "✅ Release completed. version=v$($v)"
 Ok  "   CHANGELOG.md updated, tag=v$($('v' + $v))"
