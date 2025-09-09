@@ -2,12 +2,9 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## <small>0.1.7 (2025-09-09)</small>
+## <small>0.1.8 (2025-09-09)</small>
 
-* fix(smoke): write a JSONL line at bootstrap to satisfy E2E log expectations ([c56f8e3](https://github.com/dh1293-hub/gpt5-conductor/commit/c56f8e3))
-* fix(lint,smoke): remove useless escapes; replace while(true) with for(;;); ensure logs/app.log exist ([4244d4f](https://github.com/dh1293-hub/gpt5-conductor/commit/4244d4f))
-* build(release): add auto-push; ignore venv/pycache; untrack accidental node_modules lock ([a8f7757](https://github.com/dh1293-hub/gpt5-conductor/commit/a8f7757))
-* build(release): add standard-version and npm release scripts ([902ac01](https://github.com/dh1293-hub/gpt5-conductor/commit/902ac01))
+* ci: add GitHub Actions (checks on push, manual release via standard-version) ([ffbdb0a](https://github.com/dh1293-hub/gpt5-conductor/commit/ffbdb0a))
 
 
 
