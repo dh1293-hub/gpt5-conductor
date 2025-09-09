@@ -2,9 +2,11 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## <small>0.1.8 (2025-09-09)</small>
+## <small>0.1.9 (2025-09-09)</small>
 
-* ci: add GitHub Actions (checks on push, manual release via standard-version) ([ffbdb0a](https://github.com/dh1293-hub/gpt5-conductor/commit/ffbdb0a))
+* chore: stop tracking node_modules ([a19401c](https://github.com/dh1293-hub/gpt5-conductor/commit/a19401c))
+* chore(release-test): verify ci & release pipeline ([3acd7b2](https://github.com/dh1293-hub/gpt5-conductor/commit/3acd7b2))
+* ci(release): auto-publish GitHub Release on tag push ([a259470](https://github.com/dh1293-hub/gpt5-conductor/commit/a259470))
 
 
 
