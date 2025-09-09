@@ -1,42 +1,44 @@
-﻿{
-    "name":  "gpt5-conductor",
-    "version":  "0.1.6",
-    "private":  true,
-    "type":  "module",
-    "scripts":  {
-                    "setup-env":  "node scripts/setup-env.mjs",
-                    "run-lint":  "node scripts/run-lint.mjs",
-                    "run-typecheck":  "node scripts/run-typecheck.mjs",
-                    "build":  "tsc -p tsconfig.json",
-                    "start":  "node dist/app/bootstrap.js",
-                    "check:ts":  "node ./scripts/check-ts-version.mjs",
-                    "prebuild":  "node ./scripts/check-ts-version.mjs",
-                    "run-tests":  "vitest run",
-                    "run-smoke":  "vitest run tests/e2e --reporter=dot",
-                    "run-contract":  "vitest run tests/contract --reporter=dot",
-                    "run-hardening":  "node ./dist/app/hardening.js --mode=baseline",
-                    "run-hardening-fault":  "node ./dist/app/hardening.js --mode=fault --inject=pii,crash",
-                    "run-hardening-metrics":  "node ./dist/app/hardening.js --mode=metrics --intervalMs=2000 --durationMs=10000",
-                    "release":  "standard-version",
-                    "release:patch":  "npm run release -- --release-as patch",
-                    "release:minor":  "npm run release -- --release-as minor",
-                    "release:major":  "npm run release -- --release-as major",
-                    "prerelease":  "npm run run-lint \u0026\u0026 npm run run-typecheck \u0026\u0026 npm run build \u0026\u0026 npm run run-tests",
-                    "postrelease":  "git push --follow-tags origin main"
-                },
-    "devDependencies":  {
-                            "@types/node":  "^20.11.24",
-                            "@typescript-eslint/eslint-plugin":  "6.21.0",
-                            "@typescript-eslint/parser":  "6.21.0",
-                            "ajv":  "^8.17.1",
-                            "ajv-formats":  "^3.0.1",
-                            "conventional-changelog-conventionalcommits":  "^9.1.0",
-                            "eslint":  "8.57.0",
-                            "standard-version":  "^9.5.0",
-                            "typescript":  "5.4.5",
-                            "vitest":  "^3.2.4"
-                        },
-    "overrides":  {
-                      "typescript":  "5.4.5"
-                  }
+{
+    "name": "gpt5-conductor",
+    "version": "0.1.7",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "setup-env": "node scripts/setup-env.mjs",
+        "run-lint": "node scripts/run-lint.mjs",
+        "run-typecheck": "node scripts/run-typecheck.mjs",
+        "build": "tsc -p tsconfig.json",
+        "start": "node dist/app/bootstrap.js",
+        "check:ts": "node ./scripts/check-ts-version.mjs",
+        "prebuild": "node ./scripts/check-ts-version.mjs",
+        "run-tests": "vitest run",
+        "run-smoke": "vitest run tests/e2e --reporter=dot",
+        "run-contract": "vitest run tests/contract --reporter=dot",
+        "run-hardening": "node ./dist/app/hardening.js --mode=baseline",
+        "run-hardening-fault": "node ./dist/app/hardening.js --mode=fault --inject=pii,crash",
+        "run-hardening-metrics": "node ./dist/app/hardening.js --mode=metrics --intervalMs=2000 --durationMs=10000",
+        "release": "standard-version",
+        "release:patch": "npm run release -- --release-as patch",
+        "release:minor": "npm run release -- --release-as minor",
+        "release:major": "npm run release -- --release-as major",
+        "prerelease": "npm run run-lint && npm run run-typecheck && npm run build && npm run run-tests",
+        "postrelease": "git push --follow-tags origin main"
+    },
+    "devDependencies": {
+        "@eslint/eslintrc": "2.1.4",
+        "@types/node": "20.19.0",
+        "@typescript-eslint/eslint-plugin": "6.21.0",
+        "@typescript-eslint/parser": "6.21.0",
+        "ajv": "^8.17.1",
+        "ajv-formats": "^3.0.1",
+        "conventional-changelog-conventionalcommits": "^9.1.0",
+        "eslint": "8.57.0",
+        "standard-version": "^9.5.0",
+        "typescript": "5.4.5",
+        "vite": "7.1.5",
+        "vitest": "3.2.4"
+    },
+    "overrides": {
+        "typescript": "5.4.5"
+    }
 }
