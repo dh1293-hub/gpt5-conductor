@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
 
+# ⬅️ 핵심: 릴리스 작성 권한 부여
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Build & Release
@@ -14,12 +18,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 태그 포함 전체 히스토리
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22.19.0"    # 재현성 위해 고정
+          node-version: "22.19.0"
           cache: "npm"
 
       - name: Install (npm ci)
@@ -34,18 +38,18 @@ jobs:
       - name: Package dist
         run: |
           mkdir -p artifacts
-          zip -r artifacts/gpt5-conductor_${{ github.ref_name }}.zip dist
+          zip -r "artifacts/gpt5-conductor_${{ github.ref_name }}.zip" dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gpt5-conductor_${{ github.ref_name }}
-          path: artifacts/gpt5-conductor_${{ github.ref_name }}.zip
+          name: "gpt5-conductor_${{ github.ref_name }}"
+          path: "artifacts/gpt5-conductor_${{ github.ref_name }}.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/gpt5-conductor_${{ github.ref_name }}.zip
+          files: "artifacts/gpt5-conductor_${{ github.ref_name }}.zip"
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
