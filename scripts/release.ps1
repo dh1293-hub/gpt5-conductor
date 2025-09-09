@@ -1,53 +1,32 @@
-param(
-  [ValidateSet("patch","minor","major")]
-  [string]$level = "patch"
+Param(
+  [ValidateSet("patch","minor","major","pre")]
+  [string]$Type = "patch",
+  [string]$PreId = "rc"
 )
 $ErrorActionPreference = "Stop"
+function Write-Info($m){ Write-Host $m -ForegroundColor Cyan }
+function Write-Warn($m){ Write-Host $m -ForegroundColor DarkYellow }
 
-function Invoke-Git {
-  param(
-    [Parameter(ValueFromRemainingArguments=$true, Position=0)]
-    [string[]]$gitArgs
-  )
-  & git @gitArgs
-  $code = $LASTEXITCODE
-  if ($code -ne 0) { throw "git $($gitArgs -join ' ') failed (exit $code)" }
+# 루트 검증
+$root = Resolve-Path "."
+if (-not (Test-Path "$root\package.json")) { throw "package.json 미존재: 루트가 아님 → 현재: $root" }
+
+# 브랜치/상태 검사
+$branch = git rev-parse --abbrev-ref HEAD
+if ($branch -ne "main") { Write-Warn "현재 브랜치: $branch (main 권장)"; }
+$dirty = git status --porcelain
+if ($dirty) { throw "작업트리 깨끗하지 않음. 커밋 후 다시 실행하세요." }
+
+# 릴리스 실행
+switch ($Type) {
+  "pre"   { $cmd = "npm run release:pre -- --prerelease $PreId" }
+  default { $cmd = "npm run release:$Type" }
 }
+Write-Info "실행: $cmd"
+Invoke-Expression $cmd
 
-function Bump-Version($v, $lvl) {
-  if ($v -notmatch "^v(\d+)\.(\d+)\.(\d+)$") { throw "Invalid tag format: $v" }
-  $maj = [int]$Matches[1]; $min = [int]$Matches[2]; $pat = [int]$Matches[3]
-  switch ($lvl) {
-    "major" { $maj++; $min=0; $pat=0 }
-    "minor" { $min++; $pat=0 }
-    "patch" { $pat++ }
-  }
-  return "v$maj.$min.$pat"
-}
-
-Invoke-Git fetch --all --tags --prune
-
-$last = (& git describe --tags --abbrev=0) 2>$null
-if (-not $last) { $last = "v0.1.0" }  # 최초 기본값
-
-$dirty = & git status --porcelain
-if ($dirty) {
-  Write-Host "⚠️ Working tree가 깨끗하지 않습니다. 커밋 또는 stash 후 재실행." -ForegroundColor DarkYellow
-  exit 2
-}
-
-$new = Bump-Version $last $level
-Write-Host "Last: $last  ->  New: $new" -ForegroundColor Cyan
-
-Invoke-Git tag -a $new -m "release: $new"
-
-New-Item -ItemType Directory -Force release_notes | Out-Null
-& git log "$last..HEAD" --pretty=format:"- %s (%h)" |
-  Out-File -Encoding utf8 "release_notes/$($new.TrimStart('v')).txt"
-
-Invoke-Git push --follow-tags origin main
-
-$has = (& git ls-remote --tags origin "refs/tags/$new")
-if (-not $has) { throw "Remote tag 확인 실패: $new" }
-
-Write-Host "✅ Release done: $new" -ForegroundColor Green
+# 태그 확인 및 푸시
+$tag = git describe --tags --abbrev=0
+Write-Info "생성 태그: $tag"
+git push --follow-tags origin main
+Write-Info "완료: $tag 푸시 완료."
