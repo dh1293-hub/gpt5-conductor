@@ -14,3 +14,5 @@ Write-Host "== Bump & changelog =="
 npm run ("release:{0}" -f $Bump)
 Write-Host "== Recent tags =="
 git tag --sort=-creatordate | Select-Object -First 5
+# auto push
+git push --follow-tags origin main
