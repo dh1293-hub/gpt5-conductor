@@ -1,12 +1,12 @@
-name: Auto Release (rel bot)
+﻿name: Auto Release (rel bot)
 
 on:
   schedule:
-    - cron: '0 2 * * *'      # 매일 11:00 KST (=02:00 UTC)
+    - cron: "0 2 * * *"   # 매일 11:00 KST
   push:
     paths:
-      - 'CHANGELOG.md'
-      - 'scripts/PS-REL-ONE.ps1'
+      - "CHANGELOG.md"
+      - "scripts/PS-REL-ONE.ps1"
   workflow_dispatch: {}
 
 permissions:
