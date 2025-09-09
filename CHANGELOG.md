@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## <small>0.1.6 (2025-09-09)</small>
+
+* build(release): setup standard-version and release pipeline ([c85729a](https://github.com/dh1293-hub/gpt5-conductor/commit/c85729a))
+
+
+
 ### [0.1.5](https://github.com/dh1293-hub/gpt5-conductor/compare/v0.1.4...v0.1.5) (2025-09-09)
 
 ### [0.1.4](https://github.com/dh1293-hub/gpt5-conductor/compare/v0.1.3...v0.1.4) (2025-09-09)
