@@ -1,16 +1,8 @@
-﻿# deps
-/node_modules/
-
-# build outputs
-/dist/
-/artifacts/
-
-# logs
-/logs/
+﻿node_modules/
+npm-debug.log*
+dist/
+coverage/
+logs/
 *.log
-
-# env
-.env
-.env.*
-
-/.venv/
+.DS_Store
+Thumbs.db
