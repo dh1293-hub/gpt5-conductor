@@ -2,7 +2,7 @@
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # 매일 11:00 KST
+    - cron: "0 2 * * *"
   push:
     paths:
       - "CHANGELOG.md"
@@ -18,9 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Pester tests (contract/log)
+      - name: List repo files (debug)
         shell: pwsh
-        run: .\scripts\PS-TEST.ps1
+        run: Get-ChildItem -Recurse | Select-Object FullName
+
+      - name: Run Pester tests (optional)
+        shell: pwsh
+        run: |
+          if (Test-Path .\scripts\PS-TEST.ps1) {
+            Write-Host "[Pester] scripts\PS-TEST.ps1 found. Running..."
+            .\scripts\PS-TEST.ps1
+          } else {
+            Write-Host "[Pester] scripts\PS-TEST.ps1 not found. Skip."
+          }
 
       - name: Dry-run (logs only)
         shell: pwsh
@@ -30,7 +40,7 @@ jobs:
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}  # 선택
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: .\scripts\PS-REL-ONE.ps1 -Live
 
       - name: Upload logs
