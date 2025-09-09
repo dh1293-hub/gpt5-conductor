@@ -1,16 +1,24 @@
-﻿name: release
+name: release
 
 on:
   workflow_dispatch:
   schedule:
-    # 留ㅼ씪 03:30 KST (UTC 18:30)
-    - cron: "30 18 * * *"
+    - cron: "30 18 * * *" # 매일 03:30 KST
+  push:
+    branches: [ "main" ]
+    paths:
+      - "CHANGELOG.md"
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
+    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, 'chore(release)') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for tags)
@@ -43,5 +51,4 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
           generate_release_notes: true
