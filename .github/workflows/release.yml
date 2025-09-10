@@ -1,4 +1,4 @@
-name: release
+﻿name: release
 
 on:
   workflow_dispatch:
@@ -46,7 +46,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Ensure zip is available
+
+      - name: Diagnostics (env & repo)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "## Env"
+          node -v || true
+          npm -v || true
+          uname -a || true
+          df -h || true
+          echo ""
+          echo "## Git"
+          git log -1 --oneline || true
+          git describe --tags --abbrev=0 2>/dev/null || true
+          git status -sb || true
+          echo ""
+          echo "## Files (top)"
+          ls -al | head -n 200 || true      - name: Ensure zip is available
         run: |
           if ! command -v zip >/dev/null 2>&1; then
             sudo apt-get update && sudo apt-get install -y zip
@@ -88,7 +105,7 @@ jobs:
           else
             TAG="$BASE"
           fi
-          echo "LAST=$LAST  →  TAG=$TAG"
+          echo "LAST=$LAST  ?? TAG=$TAG"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> "$GITHUB_ENV"
 
