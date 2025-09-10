@@ -1,19 +1,31 @@
-﻿/** domain/reporting/ports.ts */
-import type { ReportSpec } from "./types";
+﻿/**
+ * Ports contract (converged) — step3
+ * - ReportEnginePort: generate(req) 사용
+ * - ReportRequest: title/columns/rows 포함
+ * - ParsePort: 동기 반환(ReportSpec) — app/reporting/ReportService.ts와 일치
+ */
+export type PortContext = { traceId?: string; timeoutMs?: number; locale?: string };
 
-export interface QueryPort {
-  /** ReportSpec을 받아 원시 레코드(plain objects) 배열을 돌려줍니다. */
-  run(spec: ReportSpec): Promise<Record<string, unknown>[]>;
-}
-
-export interface RenderPort {
-  /** 레코드 배열을 지정 포맷(csv/json 등)으로 직렬화 */
-  render(records: Record<string, unknown>[], spec: ReportSpec): Promise<Buffer | string>;
-}
+export type ReportSpec = { source: any; fields: any; format: any };;
 
 export interface ParsePort {
-  /** DSL 문자열을 ReportSpec으로 파싱 */
-  parse(dsl: string): ReportSpec;
+  parse(input: unknown, ctx?: PortContext): ReportSpec;
 }
 
+export type ReportRequest = {
+  title: string;
+  columns: string[];
+  rows: Array<Record<string, unknown>>;
+};
+
+export type ReportMeta   = { title?: string; rows?: number };
+export type ReportResult = { mime: string; content: string; meta?: ReportMeta };
+
+export interface ReportEnginePort {
+  generate(req: ReportRequest, ctx?: PortContext): Promise<ReportResult>;
+}
+
+/* 유지용(기존 호출자 호환) */
+export interface QueryPort  { run(input: unknown, ctx?: PortContext): Promise<any>; }
+export interface RenderPort { render(input: unknown, options?: any, ctx?: PortContext): Promise<string | Buffer>; }
 

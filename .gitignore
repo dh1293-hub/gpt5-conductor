@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 npm-debug.log*
 dist/
 coverage/
@@ -9,8 +9,10 @@ Thumbs.db
 .venv/
 **/__pycache__/
 *.py[cod]
-
-node_modules/
-
 release_notes/
-
+# Kobong standard ignore
+out/
+reports/releases/*/*.zip
+*.tgz
+*.zip
+*.bak
