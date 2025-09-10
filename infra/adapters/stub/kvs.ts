@@ -1,5 +1,5 @@
-﻿import { KeyValueStorePort } from "../../../domain/ports/kvs.js";
-import { createJsonlLogger } from "../../logging/jsonlLogger.js";
+﻿import { KeyValueStorePort } from "../../../domain/ports/kvs";
+import { createJsonlLogger } from "../../logging/jsonlLogger";
 
 const log = createJsonlLogger({ defaultModule: "infra.stub.kvs" }).with({ module: "infra.stub.kvs" });
 
@@ -29,3 +29,4 @@ export class InMemoryKVS implements KeyValueStorePort {
     await log.log({ module: "infra.stub.kvs", level: "DEBUG", action: "kvs.del", message: "ok", meta: { key } });
   }
 }
+
