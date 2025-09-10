@@ -9,7 +9,6 @@ on:
     paths:
       - "CHANGELOG.md"
 
-# ⛑ 필요한 권한 (contents + actions(재시도) + issues(알림))
 permissions:
   contents: write
   actions: write
@@ -23,7 +22,7 @@ jobs:
   release:
     if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, 'chore(release)') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout (full history for tags)
@@ -31,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 실행 링크를 로그/요약에 남겨서 찾기 쉽게
+      # 실행 링크를 요약/로그에 남겨서 찾기 쉽게
       - name: Print run URL
         run: echo "Run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
@@ -59,6 +58,22 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      # ---------- Preflight: 스크립트 존재 감지 ----------
+      - name: Detect npm scripts (lint/test/build)
+        run: |
+          node -e "const p=require('./package.json');const s=p.scripts||{};console.log('HAS_TEST='+(!!s.test))" >> $GITHUB_ENV
+          node -e "const p=require('./package.json');const s=p.scripts||{};console.log('HAS_LINT='+(!!s.lint))" >> $GITHUB_ENV
+          node -e "const p=require('./package.json');const s=p.scripts||{};console.log('HAS_BUILD='+(!!s.build))" >> $GITHUB_ENV
+
+      - name: Lint (pre-release gate)
+        if: env.HAS_LINT == 'true'
+        run: npm run lint
+
+      - name: Unit tests (pre-release gate)
+        if: env.HAS_TEST == 'true'
+        run: npm run test -- --run
+      # ---------- Preflight 끝 ----------
+
       - name: Dry run (standard-version)
         run: npx standard-version --dry-run
 
@@ -70,18 +85,27 @@ jobs:
           echo "TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> $GITHUB_ENV
 
+      # 빌드/압축: build 스크립트가 있으면 빌드 → 산출물 압축, 없으면 저장소 통째로 압축(백업용)
       - name: Build (prod)
+        if: env.HAS_BUILD == 'true'
         run: npm run build
 
       - name: Archive (zip)
+        if: env.HAS_BUILD == 'true'
         run: |
           if [ -d "dist" ]; then
             zip -r build.zip dist
           elif [ -d "build" ]; then
             zip -r build.zip build
           else
-            echo "No dist/ or build/ directory found"; exit 2
+            echo "Build folder not found after build"; exit 2
           fi
+
+      - name: Archive repository (fallback zip)
+        if: env.HAS_BUILD != 'true'
+        run: |
+          echo "No build script; zipping repository (excluding heavy dirs)"
+          zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
 
       - name: Keep zip as CI artifact
         uses: actions/upload-artifact@v4
@@ -108,7 +132,7 @@ jobs:
             - ${{ env.REL_DATE }} (KST)
           files: build.zip
 
-      # 🔁 실패 시 1회 자동 재시도(실패한 job들만)
+      # 🔁 실패 시 1회 자동 재시도
       - name: Auto re-run failed jobs once
         if: ${{ failure() && github.run_attempt == '1' }}
         uses: actions/github-script@v7
@@ -121,7 +145,7 @@ jobs:
             })
             core.notice('Triggered auto re-run for failed jobs (attempt 2/2).')
 
-      # 🚨 2번째도 실패하면 이슈 자동 생성(알림)
+      # 🚨 2번째도 실패하면 이슈 자동 생성
       - name: Open failure issue with run link
         if: ${{ failure() && github.run_attempt != '1' }}
         uses: actions/github-script@v7
