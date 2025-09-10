@@ -1,0 +1,35 @@
+name: release-verify
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generate notes via ACL (fallback-safe)
+        run: |
+          node scripts/acl/release-notes.mjs --tag=${GITHUB_REF_NAME} --out=out/release_notes/${GITHUB_REF_NAME}.md
+          sed -n '1,60p' out/release_notes/${GITHUB_REF_NAME}.md
+
+      - name: Sync GitHub Release (create or edit)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit ${GITHUB_REF_NAME} \
+            -F out/release_notes/${GITHUB_REF_NAME}.md \
+            -t "gpt5-conductor ${GITHUB_REF_NAME}" --latest \
+          || gh release create ${GITHUB_REF_NAME} \
+            -F out/release_notes/${GITHUB_REF_NAME}.md \
+            -t "gpt5-conductor ${GITHUB_REF_NAME}" --latest --verify-tag
