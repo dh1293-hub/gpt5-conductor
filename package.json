@@ -1,6 +1,6 @@
 {
     "name":  "gpt5-conductor",
-    "version":  "0.1.12",
+    "version":  "0.1.22",
     "private":  true,
     "type":  "module",
     "scripts":  {
@@ -50,48 +50,48 @@
                              "tagPrefix":  "v",
                              "types":  [
                                            {
-                                               "section":  "🚀 Features",
+                                               "section":  "?? Features",
                                                "type":  "feat"
                                            },
                                            {
-                                               "section":  "🐛 Fixes",
+                                               "section":  "?맀 Fixes",
                                                "type":  "fix"
                                            },
                                            {
-                                               "section":  "⚡ Performance",
+                                               "section":  "??Performance",
                                                "type":  "perf"
                                            },
                                            {
-                                               "section":  "♻️ Refactor",
+                                               "section":  "?삼툘 Refactor",
                                                "type":  "refactor"
                                            },
                                            {
                                                "hidden":  false,
-                                               "section":  "📝 Docs",
+                                               "section":  "?뱷 Docs",
                                                "type":  "docs"
                                            },
                                            {
                                                "hidden":  true,
-                                               "section":  "✅ Tests",
+                                               "section":  "??Tests",
                                                "type":  "test"
                                            },
                                            {
                                                "hidden":  true,
-                                               "section":  "🏗️ Build",
+                                               "section":  "?룛截?Build",
                                                "type":  "build"
                                            },
                                            {
                                                "hidden":  true,
-                                               "section":  "🤖 CI",
+                                               "section":  "?쨼 CI",
                                                "type":  "ci"
                                            },
                                            {
                                                "hidden":  true,
-                                               "section":  "🧹 Chore",
+                                               "section":  "?㏏ Chore",
                                                "type":  "chore"
                                            },
                                            {
-                                               "section":  "⏪ Revert",
+                                               "section":  "??Revert",
                                                "type":  "revert"
                                            }
                                        ],
