@@ -74,3 +74,5 @@ All notable changes to this project will be documented in this file.
 <!-- trigger release clean 2025-09-10T12:37:40 -->
 
 <!-- trigger release after commit-key fix 2025-09-10T12:42:32 -->
+
+<!-- trigger release with checksum 2025-09-10T12:44:38 -->
