@@ -1,4 +1,4 @@
-﻿name: release
+name: release
 
 on:
   workflow_dispatch:
@@ -46,7 +46,6 @@ jobs:
         with:
           fetch-depth: 0
 
-
       - name: Diagnostics (env & repo)
         shell: bash
         run: |
@@ -55,15 +54,16 @@ jobs:
           node -v || true
           npm -v || true
           uname -a || true
-          df -h || true
           echo ""
           echo "## Git"
           git log -1 --oneline || true
           git describe --tags --abbrev=0 2>/dev/null || true
           git status -sb || true
           echo ""
-          echo "## Files (top)"
-          ls -al | head -n 200 || true      - name: Ensure zip is available
+          echo "## Files(top)"
+          ls -al | head -n 200 || true
+
+      - name: Ensure zip is available
         run: |
           if ! command -v zip >/dev/null 2>&1; then
             sudo apt-get update && sudo apt-get install -y zip
@@ -105,7 +105,6 @@ jobs:
           else
             TAG="$BASE"
           fi
-          echo "LAST=$LAST  ?? TAG=$TAG"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> "$GITHUB_ENV"
 
@@ -157,3 +156,37 @@ jobs:
           allowUpdates: true
           replacesArtifacts: true
           artifacts: ${{ env.BUILD_PATH }}
+
+      - name: Auto re-run failed jobs once
+        if: ${{ failure() && github.run_attempt == '1' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.reRunWorkflowFailedJobs({
+              owner: context.repo.owner, repo: context.repo.repo, run_id: context.runId
+            })
+            core.notice('Triggered auto re-run (attempt 2/2).')
+
+      - name: Open failure issue (with run link)
+        if: ${{ failure() }}
+        uses: actions/github-script@v7
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TAG: ${{ env.TAG }}
+        with:
+          script: |
+            const title = `Release failed: ${process.env.TAG}`;
+            const body  = [
+              '### ❌ Release workflow failed',
+              `- Run: ${process.env.RUN_URL}`,
+              `- Tag: ${process.env.TAG}`,
+              `- Ref: ${context.ref}`,
+              `- Actor: ${context.actor}`,
+              `- Commit: ${context.sha}`,
+              '',
+              '문서: docs/RELEASES.md',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title, body, labels: ['release','failed']
+            })
