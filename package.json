@@ -25,7 +25,7 @@
                     "postrelease":  "git push --follow-tags origin main",
                     "release:dry":  "standard-version --dry-run",
                     "release:pre":  "standard-version --prerelease rc",
-                    "run-unit":  "vitest run tests/unit --reporter=dot",
+                    "run-unit":  "vitest run \"tests/unit/**/*.test.ts\" --reporter=dot",
                     "run-tests-all":  "vitest run --reporter=dot"
                 },
     "devDependencies":  {

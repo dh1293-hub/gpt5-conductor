@@ -1,78 +1,105 @@
-﻿/** domain/dsl/parser.ts */
-import type { ReportSpec, SortSpec } from "../reporting/types";
-import { ParseError } from "../reporting/errors";
+﻿export class ParseError extends Error {
+  lineNo: number;
+  constructor(message: string, lineNo: number) {
+    super(message);
+    this.name = "ParseError";
+    this.lineNo = lineNo;
+  }
+}
 
-type Ctx = { lineNo: number };
+type Ctx = { lineNo: number; line?: string };
+
+type ReportField = { name: string; type?: string };
+export type ReportSpec = {
+  version?: string;
+  source?: { type: string; path?: string };
+  fields?: ReportField[];
+  format?: { type: string };
+};
 
 function err(ctx: Ctx, msg: string): never {
-  throw new ParseError(`line ${ctx.lineNo}: ${msg}`, ctx.lineNo);
+  throw new ParseError(`line ${ctx.lineNo}: ${msg} | "${ctx.line ?? ""}"`, ctx.lineNo);
 }
 
-function splitCsv(s: string): string[] {
-  // 간단: 콤마 기준(따옴표 처리 없음 — v0.1)
-  return s.split(",").map(x => x.trim()).filter(Boolean);
+function splitLines(input: string): string[] {
+  return input
+    .split(/\r?\n/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0 && !/^#|^\/\//.test(s));
 }
 
-/** core parser: 줄 단위 규칙을 누적하여 ReportSpec 작성 */
+/** 허용 문법: "key: value" / "key=value" / "key value" */
+function parseKeyValue(line: string): { key: string; value: string } | null {
+  const m = line.match(/^\s*([A-Za-z][\w-]*)\s*(?::|=|\s)\s*(.+?)\s*$/);
+  if (!m) return null;
+  return { key: m[1].toLowerCase(), value: m[2] };
+}
+
+function parseSource(val: string): { type: string; path?: string } | null {
+  const m = val.match(/^(csv)\s*[: ]\s*(.+)$/i) || val.match(/^(csv)\s+(.+)$/i);
+  if (m) return { type: m[1].toLowerCase(), path: m[2].trim() };
+  if (/^[A-Za-z][\w-]*$/.test(val)) return { type: val.toLowerCase() };
+  return null;
+}
+
+function parseFields(val: string): ReportField[] | null {
+  const items = val.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+  if (items.length === 0) return null;
+  return items.map(n => ({ name: n }));
+}
+
+function parseFormat(val: string): { type: string } | null {
+  const m = val.match(/^([A-Za-z][\w-]*)$/);
+  if (m) return { type: m[1].toLowerCase() };
+  const m2 = val.match(/^(type)\s*[:= ]\s*([A-Za-z][\w-]*)$/i);
+  if (m2) return { type: m2[2].toLowerCase() };
+  return null;
+}
+
 export function parseFromDsl(input: string): ReportSpec {
-  const lines = input.split(/\r?\n/).map(s => s.trim()).filter(s => s.length > 0);
+  if (typeof input !== "string") throw new ParseError("input must be a string DSL", 0);
+
+  const lines = splitLines(input);
   const ctx: Ctx = { lineNo: 0 };
+  const spec: ReportSpec = {};
 
-  let source = "";
-  const fields: { name: string; alias?: string }[] = [];
-  let format: "csv" | "json" | "" = "";
-  let limit: number | undefined;
-  let sort: SortSpec[] | undefined;
+  for (const line of lines) {
+    ctx.lineNo++;
+    ctx.line = line;
 
-  for (let i = 0; i < lines.length; i++) {
-    ctx.lineNo = i + 1;
-    const ln = lines[i];
-    const m = ln.match(/^([A-Za-z]+)\s+(.+)$/);
-    if (!m) err(ctx, "알 수 없는 구문");
+    const kv = parseKeyValue(line);
+    if (!kv) err(ctx, "invalid syntax (expected 'key: value' / 'key=value' / 'key value')");
 
-    const head = m[1].toUpperCase();
-    const body = m[2].trim();
-
-    if (head === "REPORT") {
-      if (!body) err(ctx, "REPORT 뒤에 source 필요");
-      source = body;
-    } else if (head === "FIELDS") {
-      const names = splitCsv(body);
-      if (names.length === 0) err(ctx, "FIELDS 비어있음");
-      for (const n of names) {
-        // alias 지원: field as alias
-        const mm = n.match(/^([A-Za-z0-9_]+)(\s+AS\s+([A-Za-z0-9_]+))?$/i);
-        if (!mm) err(ctx, `필드명 형식 오류: ${n}`);
-        fields.push({ name: mm[1], alias: mm[3] });
+    switch (kv.key) {
+      case "version":
+        spec.version = kv.value.trim();
+        break;
+      case "source": {
+        const src = parseSource(kv.value);
+        if (!src) err(ctx, "invalid source (e.g., 'source: csv tests/fixtures/minimal.csv')");
+        spec.source = src;
+        break;
       }
-    } else if (head === "FORMAT") {
-      const f = body.toLowerCase();
-      if (f !== "csv" && f !== "json") err(ctx, "FORMAT csv|json 만 허용");
-      format = f as "csv" | "json";
-    } else if (head === "LIMIT") {
-      const n = Number(body);
-      if (!Number.isInteger(n) || n < 1) err(ctx, "LIMIT 정수 필요");
-      limit = n;
-    } else if (head === "SORT") {
-      // 예: SORT amount desc
-      const parts = body.split(/\s+/);
-      if (parts.length < 1) err(ctx, "SORT 형식 오류");
-      const field = parts[0];
-      const dir = (parts[1]?.toLowerCase() === "desc") ? "desc" : "asc";
-      sort = [{ field, dir }];
-    } else {
-      err(ctx, `지원되지 않는 키워드: ${head}`);
+      case "fields": {
+        const fs = parseFields(kv.value);
+        if (!fs) err(ctx, "invalid fields (comma/space separated)");
+        spec.fields = fs;
+        break;
+      }
+      case "format": {
+        const fm = parseFormat(kv.value);
+        if (!fm) err(ctx, "invalid format (e.g., 'format: table')");
+        spec.format = fm;
+        break;
+      }
+      default:
+        err(ctx, `unknown key '${kv.key}'`);
     }
   }
 
-  if (!source) throw new ParseError("source 미지정");
-  if (fields.length === 0) throw new ParseError("fields 미지정");
-  if (!format) throw new ParseError("format 미지정");
+  if (!spec.source) throw new ParseError("source 미지정", ctx.lineNo || 0);
+  if (!spec.fields || spec.fields.length === 0) throw new ParseError("fields 미지정", ctx.lineNo || 0);
+  if (!spec.format) throw new ParseError("format 미지정", ctx.lineNo || 0);
 
-  const spec: ReportSpec = {
-    source, fields, format,
-    limit,
-    sort,
-  };
   return spec;
 }
