@@ -1,4 +1,4 @@
-name: release
+﻿name: release
 
 on:
   workflow_dispatch:
@@ -133,7 +133,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.TAG }}
           name: "Release ${{ env.TAG }} - ${{ env.REL_DATE }}"
-          commitish: ${{ github.sha }}
+          commit: ${{ github.sha }}
           bodyFile: ${{ env.BODY_PATH }}
           prerelease: ${{ inputs.prerelease }}
           makeLatest: true
@@ -162,14 +162,14 @@ jobs:
               owner: context.repo.owner, repo: context.repo.repo,
               title: `Release failed: ${process.env.TAG}`,
               body: [
-                '### ❌ Release workflow failed',
+                '### ??Release workflow failed',
                 `- Run: ${process.env.RUN_URL}`,
                 `- Tag: ${process.env.TAG}`,
                 `- Ref: ${context.ref}`,
                 `- Actor: ${context.actor}`,
                 `- Commit: ${context.sha}`,
                 '',
-                '문서: docs/RELEASES.md',
+                '臾몄꽌: docs/RELEASES.md',
               ].join('\n'),
               labels: ['release','failed']
             })
