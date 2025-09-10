@@ -1,4 +1,4 @@
-name: release
+﻿name: release
 
 on:
   workflow_dispatch:
@@ -100,7 +100,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          # 1) 가능한 빌드 사용
+          # 1) 媛?ν븳 鍮뚮뱶 ?ъ슜
           HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
           if [ "$HAS_BUILD" = "true" ]; then
             npm run build || HAS_BUILD=false
@@ -110,12 +110,11 @@ jobs:
           elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then
             zip -r build.zip build
           else
-            # 빌드 없음 → 저장소 zip
+            # 鍮뚮뱶 ?놁쓬 ????μ냼 zip
             zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
           fi
 
-          # 2) 최소 크기(5KB) 가드: 너무 작은 zip이면 저장소 zip로 대체
-          MIN=5120
+          # 2) 理쒖냼 ?ш린(5KB) 媛?? ?덈Т ?묒? zip?대㈃ ??μ냼 zip濡??泥?          MIN=5120
           SIZE=$(stat -c%s build.zip)
           if [ "${SIZE:-0}" -lt "$MIN" ]; then
             echo "[warn] build.zip too small (${SIZE}B) -> fallback to repo zip"
@@ -191,14 +190,14 @@ jobs:
               owner: context.repo.owner, repo: context.repo.repo,
               title: `Release failed: ${process.env.TAG}`,
               body: [
-                '### ❌ Release workflow failed',
+                '### ??Release workflow failed',
                 `- Run: ${process.env.RUN_URL}`,
                 `- Tag: ${process.env.TAG}`,
                 `- Ref: ${context.ref}`,
                 `- Actor: ${context.actor}`,
                 `- Commit: ${context.sha}`,
                 '',
-                '문서: docs/RELEASES.md',
+                '臾몄꽌: docs/RELEASES.md',
               ].join('\n'),
               labels: ['release','failed']
             })
