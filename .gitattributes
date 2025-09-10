@@ -1,5 +1,7 @@
-# Kobong: prevent EOL conversions/warnings for downloaded artifacts
+# Kobong: normalize EOL + silence artifact warnings
+.gitignore          text eol=lf
+.gitattributes      text eol=lf
 reports/releases/** -text
-*.sha256          -text
-*.zip             binary
-*.tgz             binary
+*.sha256            -text
+*.zip               binary
+*.tgz               binary
