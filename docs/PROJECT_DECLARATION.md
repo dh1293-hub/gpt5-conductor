@@ -12,7 +12,7 @@
 - 경고 색: 연주황(DarkYellow)
 
 ## CLI 호환 정책
-- gh run view --watch 금지  gh run watch <runId> --interval 5 --exit-status
+- gh run view --watch 금지 → gh run watch <runId> --interval 5 --exit-status
 - 완료 후 gh run view <runId> --log
 - 아티팩트: 사전 조회 후 있을 때만 다운로드 (gh api .../artifacts -q .total_count)
 
@@ -25,7 +25,7 @@
 - 산출물: session-summary.md, errors.json, env.txt, gh_run_<ID>_log.txt(있으면), grep.csv(있으면), summary_<timestamp>.zip
 
 ## 릴리스/액션 표준 흐름
-1) PS-KKB-3.x: 트리거  완료대기  로그확인 (있으면) 아티팩트
+1) PS-KKB-3.x: 트리거 → 완료대기 → 로그확인 →(있으면) 아티팩트
 2) 릴리스/태그 상태 요약
 3) PS-KKB-3.4 사후 수집
 
@@ -37,7 +37,7 @@
 - 스크립트 변경 사유를 주석 한 줄로 남김 (예: gh 구버전 호환).
 
 ## DoR / DoD
-- DoR: 목적성공지표I/O 예시예외/로그리스크롤백 정의.
+- DoR: 목적·성공지표·I/O 예시·예외/로그·리스크·롤백 정의.
 - DoD: 빌드/정적분석/테스트/아티팩트/릴리스노트/모니터링 설정 + out/summary/.../session-summary.md 확인.
 
 End of Declaration
