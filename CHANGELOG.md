@@ -68,3 +68,5 @@ All notable changes to this project will be documented in this file.
 <!-- trigger release with diagnostics 2025-09-10T12:25:49 -->
 
 <!-- trigger release hotfix 2025-09-10T12:29:32 -->
+
+<!-- trigger release hotfix3 2025-09-10T12:34:07 -->
