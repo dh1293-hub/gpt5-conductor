@@ -97,7 +97,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          # 1) ?띠럾??繞③뇡?????キ?????          HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
+          # 1) ??좊읈??濚왿몾????????????          HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
           if [ "$HAS_BUILD" = "true" ]; then
             npm run build || HAS_BUILD=false
           fi
@@ -106,11 +106,11 @@ jobs:
           elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then
             zip -r build.zip build
           else
-            # ????キ???怨몃쾳 ????????zip
+            # ?????????⑤챶苡?????????zip
             zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
           fi
 
-          # 2) 嶺뚣끉裕??????5KB) ?띠럾??? ??????? zip???????????zip????嶺?          MIN=5120
+          # 2) 癲ル슔?됭짆??????5KB) ??좊읈??? ??????? zip???????????zip????癲?          MIN=5120
           SIZE=$(stat -c%s build.zip)
           if [ "${SIZE:-0}" -lt "$MIN" ]; then
             echo "[warn] build.zip too small (${SIZE}B) -> fallback to repo zip"
@@ -193,7 +193,7 @@ jobs:
                 `- Actor: ${context.actor}`,
                 `- Commit: ${context.sha}`,
                 '',
-                '??쒖굣?? docs/RELEASES.md',
+                '???뽮덫?? docs/RELEASES.md',
               ].join('\n'),
               labels: ['release','failed']
             })
