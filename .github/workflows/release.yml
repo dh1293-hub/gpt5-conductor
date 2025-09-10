@@ -1,4 +1,4 @@
-﻿name: release
+name: release
 
 on:
   workflow_dispatch:
@@ -96,16 +96,44 @@ jobs:
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> "$GITHUB_ENV"
 
-      - name: Build or fallback zip
+      - name: Build or fallback zip (with min-size guard)
         shell: bash
         run: |
           set -e
+          # 1) 가능한 빌드 사용
           HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
-          if [ "$HAS_BUILD" = "true" ]; then npm run build || HAS_BUILD=false; fi
-          if [ "$HAS_BUILD" = "true" ] && [ -d dist ]; then zip -r build.zip dist
-          elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then zip -r build.zip build
-          else zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"; fi
+          if [ "$HAS_BUILD" = "true" ]; then
+            npm run build || HAS_BUILD=false
+          fi
+          if [ "$HAS_BUILD" = "true" ] && [ -d dist ]; then
+            zip -r build.zip dist
+          elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then
+            zip -r build.zip build
+          else
+            # 빌드 없음 → 저장소 zip
+            zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
+          fi
+
+          # 2) 최소 크기(5KB) 가드: 너무 작은 zip이면 저장소 zip로 대체
+          MIN=5120
+          SIZE=$(stat -c%s build.zip)
+          if [ "${SIZE:-0}" -lt "$MIN" ]; then
+            echo "[warn] build.zip too small (${SIZE}B) -> fallback to repo zip"
+            rm -f build.zip
+            zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
+          fi
+
           echo "BUILD_PATH=$PWD/build.zip" >> "$GITHUB_ENV"
+
+      - name: Compute SHA256 (build.zip)
+        shell: bash
+        run: |
+          set -e
+          sha256sum "$BUILD_PATH" | tee build.zip.sha256
+          echo "CHECKSUM_PATH=$PWD/build.zip.sha256" >> "$GITHUB_ENV"
+          # value only
+          SUM=$(cut -d' ' -f1 build.zip.sha256)
+          echo "CHECKSUM_VALUE=$SUM" >> "$GITHUB_ENV"
 
       - name: Generate release body
         shell: bash
@@ -114,6 +142,7 @@ jobs:
           {
             echo "### Build"
             echo "- Attached: build.zip"
+            echo "- SHA256: \`${CHECKSUM_VALUE}\`"
             echo
             echo "### Release Date"
             echo "- $REL_DATE (KST)"
@@ -139,7 +168,7 @@ jobs:
           makeLatest: true
           allowUpdates: true
           replacesArtifacts: true
-          artifacts: ${{ env.BUILD_PATH }}
+          artifacts: ${{ env.BUILD_PATH }},${{ env.CHECKSUM_PATH }}
 
       - name: Auto re-run failed jobs once
         if: ${{ failure() && github.run_attempt == '1' }}
@@ -162,14 +191,14 @@ jobs:
               owner: context.repo.owner, repo: context.repo.repo,
               title: `Release failed: ${process.env.TAG}`,
               body: [
-                '### ??Release workflow failed',
+                '### ❌ Release workflow failed',
                 `- Run: ${process.env.RUN_URL}`,
                 `- Tag: ${process.env.TAG}`,
                 `- Ref: ${context.ref}`,
                 `- Actor: ${context.actor}`,
                 `- Commit: ${context.sha}`,
                 '',
-                '臾몄꽌: docs/RELEASES.md',
+                '문서: docs/RELEASES.md',
               ].join('\n'),
               labels: ['release','failed']
             })
