@@ -19,34 +19,5 @@ jobs:
       - name: Show environment
         run: |
           echo "Workflow is valid and running."
-          echo "GITHUB_REF: $GITHUB_REF"
-          echo "GITHUB_SHA: $GITHUB_SHA"
-
-  build:
-    needs: sanity
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Prepare build folder
-        run: |
-          mkdir -p dist
-          echo "build $(date -u)" > dist/BUILD_INFO.txt
-
-      - name: Create build.zip
-        run: zip -r build.zip dist
-
-      - name: Upload artifact (build.zip)
-        uses: actions/upload-artifact@v4
-        with:
-          name: build.zip
-          path: build.zip
-          if-no-files-found: error
-
-    runs-on: ubuntu-latest
-    steps:
-      - name: Show environment
-        run: |
-          echo "Workflow is valid and running."
           echo "GITHUB_REF: "
           echo "GITHUB_SHA: "
