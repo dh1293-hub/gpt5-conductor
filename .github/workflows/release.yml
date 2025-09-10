@@ -2,6 +2,15 @@ name: release
 
 on:
   workflow_dispatch:
+    inputs:
+      bump_level:
+        description: "Version bump (default: patch)"
+        required: false
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
   schedule:
     - cron: '30 18 * * *'
   push:
@@ -23,6 +32,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      BUMP: ${{ inputs.bump_level || 'patch' }}
     steps:
       - name: Checkout (full history for tags)
         uses: actions/checkout@v4
@@ -46,13 +57,20 @@ jobs:
           npm config set audit false
           npm ci --prefer-offline || npm install --legacy-peer-deps || true
 
-      - name: Compute next tag (+1 patch) & KST date
+      - name: Compute next tag (BUMP=${{ env.BUMP }}) & KST date
         shell: bash
         run: |
+          set -e
           LAST=$(git tag -l "v*" --sort=-v:refname | head -n 1)
           [ -z "$LAST" ] && LAST="v0.0.0"
           V=${LAST#v}; IFS='.' read -r MA MI PA <<<"$V"
-          NEXT="v${MA:-0}.${MI:-0}.$(( ${PA:-0} + 1 ))"
+          BUMP="${BUMP:-patch}"
+          case "$BUMP" in
+            minor) MI=$(( ${MI:-0} + 1 )); PA=0 ;;
+            *)     PA=$(( ${PA:-0} + 1 )) ;;
+          esac
+          NEXT="v${MA:-0}.${MI:-0}.${PA:-0}"
+          echo "LAST=$LAST  →  NEXT=$NEXT (bump=$BUMP)"
           echo "TAG=$NEXT" >> "$GITHUB_ENV"
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> "$GITHUB_ENV"
 
@@ -73,7 +91,6 @@ jobs:
           fi
           echo "BUILD_PATH=$PWD/build.zip" >> "$GITHUB_ENV"
 
-      # 🔽 CHANGELOG 최신 섹션 뽑아 본문 파일 생성
       - name: Generate release body (with latest CHANGELOG section)
         shell: bash
         run: |
@@ -86,14 +103,12 @@ jobs:
           echo "" >> rel_body.md
           echo "### Changelog" >> rel_body.md
           if [ -f CHANGELOG.md ]; then
-            # 첫 번째 '## ' 섹션부터 다음 '## ' 전까지 추출
             awk '/^## /{if (p) exit; p=1; print; next} p{print}' CHANGELOG.md >> rel_body.md || true
           else
             echo "(No CHANGELOG.md found)" >> rel_body.md
           fi
           echo "BODY_PATH=$PWD/rel_body.md" >> "$GITHUB_ENV"
 
-      # ✅ 원-스텝: 릴리스 생성/업데이트 + build.zip 업로드 + 본문 파일 적용
       - name: Publish release (create/update + upload)
         uses: ncipollo/release-action@v1
         with:
