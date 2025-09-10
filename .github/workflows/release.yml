@@ -17,7 +17,8 @@ on:
     branches: [main]
     paths: [CHANGELOG.md]
 
-permissions:contents: write
+permissions:
+  contents: write
   actions: write
   issues: write
 
@@ -96,8 +97,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          # 1) 媛?ν븳 鍮뚮뱶 ?ъ슜
-          HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
+          # 1) 揶쎛?館釉???슢諭?????          HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
           if [ "$HAS_BUILD" = "true" ]; then
             npm run build || HAS_BUILD=false
           fi
@@ -106,11 +106,11 @@ jobs:
           elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then
             zip -r build.zip build
           else
-            # 鍮뚮뱶 ?놁쓬 ????μ냼 zip
+            # ??슢諭???곸벉 ?????關??zip
             zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
           fi
 
-          # 2) 理쒖냼 ?ш린(5KB) 媛?? ?덈Т ?묒? zip?대㈃ ??μ냼 zip濡??泥?          MIN=5120
+          # 2) 筌ㅼ뮇????由?5KB) 揶쎛?? ??댭??臾? zip???????關??zip嚥???筌?          MIN=5120
           SIZE=$(stat -c%s build.zip)
           if [ "${SIZE:-0}" -lt "$MIN" ]; then
             echo "[warn] build.zip too small (${SIZE}B) -> fallback to repo zip"
@@ -193,7 +193,7 @@ jobs:
                 `- Actor: ${context.actor}`,
                 `- Commit: ${context.sha}`,
                 '',
-                '臾몄꽌: docs/RELEASES.md',
+                '?얜챷苑? docs/RELEASES.md',
               ].join('\n'),
               labels: ['release','failed']
             })
