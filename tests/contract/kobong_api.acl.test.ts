@@ -52,7 +52,7 @@ describe("kobong-api adapter (contract)", () => {
     const out = (logSpy.mock.calls[0]?.[0] as string) || "";
     expect(out).toContain('"url": "https://example.com/echo"');
     expect(out).toContain('"method": "POST"');
-    expect(out).toContain('"\\"ping\\"":1'); // appears inside escaped JSON string
+    expect(out).toContain('"body": "{\"ping\":1}"'); // request body is an escaped JSON string in pretty-printed response
   });
 
   it("prints plain text when response is not JSON", async () => {
