@@ -39,18 +39,23 @@ jobs:
             await core.summary.addHeading('Release run')
               .addLink('Open this run', process.env.RUN_URL).write()
 
+      - name: Ensure zip is available
+        run: |
+          if ! command -v zip >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y zip
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with: { node-version: '22' }
 
-      # 설치가 흔들려도 통과
       - name: Install deps (robust)
         run: |
           npm config set fund false
           npm config set audit false
           npm ci --prefer-offline || npm install --legacy-peer-deps || true
 
-      # ✅ 표준버전/푸시 제거: 마지막 태그 +1 패치로 새 태그 계산(레포 수정/푸시 없음)
+      # ✨ 마지막 태그에서 +1 패치 (푸시 없이 태그/릴리스 생성)
       - name: Compute next tag (+1 patch) & KST date
         shell: bash
         run: |
@@ -63,8 +68,9 @@ jobs:
           echo "TAG=$NEXT" >> $GITHUB_ENV
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> $GITHUB_ENV
 
-      # 항상 build.zip 생성 (build 성공 시 산출물, 아니면 저장소 zip)
+      # 📦 항상 build.zip 만들기(빌드 성공 시 산출물, 실패/없음이면 저장소 zip)
       - name: Prepare artifact (build or repo zip)
+        shell: bash
         run: |
           set -e
           HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
@@ -80,38 +86,48 @@ jobs:
             echo "→ fallback zip of repository"
             zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
           fi
+          echo "BUILD_PATH=$(pwd)/build.zip" >> $GITHUB_ENV
           ls -al build.zip
 
-      - name: Keep zip as CI artifact
-        uses: actions/upload-artifact@v4
-        with: { name: build-zip, path: build.zip, if-no-files-found: error }
-
-      # ❌ git push 제거
-
-      # ✅ 원격 태그가 없어도 릴리스 생성 (target_commitish로 현재 커밋 지정)
-      - name: Create GitHub Release (no-push mode)
-        uses: softprops/action-gh-release@v2
+      # ✅ 공식 액션으로 릴리스 생성(태그 미존재여도 target_commitish로 생성)
+      - name: Create Release (official)
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.TAG }}
-          target_commitish: ${{ github.sha }}
-          generate_release_notes: true
-          append_body: true
-          name: "Release ${{ env.TAG }} — ${{ env.REL_DATE }}"
+          release_name: "Release ${{ env.TAG }} — ${{ env.REL_DATE }}"
           body: |
             ### 📦 Build
             - Attached: `build.zip`
 
             ### 🗓 Release Date
             - ${{ env.REL_DATE }} (KST)
-          files: build.zip
+          draft: false
+          prerelease: false
+          target_commitish: ${{ github.sha }}
 
-      # 실패 시 1회 자동 재시도 → 그래도 실패면 이슈 자동 생성
+      # ✅ 공식 액션으로 자산 업로드(경로 확정값 사용)
+      - name: Upload build.zip asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.BUILD_PATH }}
+          asset_name: build.zip
+          asset_content_type: application/zip
+
+      # 실패 시 1회 재시도, 그래도 실패면 이슈 자동 생성
       - name: Auto re-run failed jobs once
         if: ${{ failure() && github.run_attempt == '1' }}
         uses: actions/github-script@v7
         with:
           script: |
-            await github.rest.actions.reRunWorkflowFailedJobs({ owner: context.repo.owner, repo: context.repo.repo, run_id: context.runId })
+            await github.rest.actions.reRunWorkflowFailedJobs({
+              owner: context.repo.owner, repo: context.repo.repo, run_id: context.runId
+            })
             core.notice('Triggered auto re-run for failed jobs (attempt 2/2).')
 
       - name: Open failure issue with run link
@@ -123,5 +139,7 @@ jobs:
           script: |
             const title = `Release workflow failed (attempt ${process.env.GITHUB_RUN_ATTEMPT})`;
             const body  = `**Run**: ${process.env.RUN_URL}\n**Ref**: ${context.ref}\n**Actor**: ${context.actor}\n**Commit**: ${context.sha}`;
-            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['release','failed'] })
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['release','failed']
+            })
             core.error('Opened issue for failed release run.')
