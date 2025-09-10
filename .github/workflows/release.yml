@@ -11,9 +11,14 @@ permissions:
   contents: write
   actions: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Show environment
         run: |
@@ -76,8 +81,10 @@ jobs:
             git push origin "$tag"
           fi
 
-      - name: Create/Update GitHub Release
+      - name: Create/Update GitHub Release (attempt 1)
         if: steps.changelog.outputs.version != ''
+        id: rel1
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.changelog.outputs.version }}
@@ -91,3 +98,61 @@ jobs:
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retry release (attempt 2)
+        if: steps.changelog.outputs.version != '' && steps.rel1.outcome == 'failure'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.changelog.outputs.version }}
+          name: v${{ steps.changelog.outputs.version }}
+          body_path: CHANGELOG.md
+          files: |
+            run_bundle.tgz
+            out/**
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify release exists
+        if: steps.changelog.outputs.version != ''
+        id: verify
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VER: ${{ steps.changelog.outputs.version }}
+        shell: bash
+        run: |
+          set -e
+          owner="${GITHUB_REPOSITORY%/*}"; repo="${GITHUB_REPOSITORY#*/}"
+          tag="v${VER}"
+          code=$(curl -s -o /tmp/rel.json -w "%{http_code}" -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$owner/$repo/releases/tags/$tag" || true)
+          echo "http_code=$code"
+          if [ "$code" = "200" ]; then
+            id=$(grep -m1 -Eo '"id":[ ]*[0-9]+' /tmp/rel.json | sed -E 's/.*: *([0-9]+)/\1/')
+            echo "release_id=$id" >> "$GITHUB_OUTPUT"
+            echo "exists=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=0" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: ROLLBACK tag+release if verification failed
+        if: steps.changelog.outputs.version != '' && steps.verify.outcome == 'failure'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VER: ${{ steps.changelog.outputs.version }}
+        shell: bash
+        run: |
+          set -e
+          owner="${GITHUB_REPOSITORY%/*}"; repo="${GITHUB_REPOSITORY#*/}"
+          tag="v${VER}"
+          # try delete release by tag
+          code=$(curl -s -o /tmp/rel.json -w "%{http_code}" -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$owner/$repo/releases/tags/$tag" || true)
+          if [ "$code" = "200" ]; then
+            id=$(grep -m1 -Eo '"id":[ ]*[0-9]+' /tmp/rel.json | sed -E 's/.*: *([0-9]+)/\1/')
+            curl -s -o /dev/null -X DELETE -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$owner/$repo/releases/$id" || true
+          fi
+          # delete tag ref (ignore errors)
+          curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$owner/$repo/git/refs/tags/$tag" || true
+          echo "Rolled back tag/release for $tag"
