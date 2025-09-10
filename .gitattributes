@@ -1,6 +1,8 @@
 # Kobong: normalize EOL + silence artifact warnings
 .gitignore          text eol=lf
 .gitattributes      text eol=lf
+*.yml               text eol=lf
+*.yaml              text eol=lf
 reports/releases/** -text
 *.sha256            -text
 *.zip               binary

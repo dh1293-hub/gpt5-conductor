@@ -47,6 +47,14 @@ jobs:
           cp -f CHANGELOG.md out/ 2>/dev/null || true
           ls -al out >> out/session-summary.md
           tar -czf run_bundle.tgz -C out .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-run
+          if-no-files-found: warn
+          path: |
+            out/**
+            run_bundle.tgz
 
       - name: Extract version from CHANGELOG
         id: changelog
