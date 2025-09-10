@@ -29,10 +29,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Print run URL
-        run: |
-          echo "Run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-
       - name: Ensure zip is available
         run: |
           if ! command -v zip >/dev/null 2>&1; then
@@ -77,6 +73,27 @@ jobs:
           fi
           echo "BUILD_PATH=$PWD/build.zip" >> "$GITHUB_ENV"
 
+      # 🔽 CHANGELOG 최신 섹션 뽑아 본문 파일 생성
+      - name: Generate release body (with latest CHANGELOG section)
+        shell: bash
+        run: |
+          set -e
+          echo "### Build" > rel_body.md
+          echo "- Attached: build.zip" >> rel_body.md
+          echo "" >> rel_body.md
+          echo "### Release Date" >> rel_body.md
+          echo "- $REL_DATE (KST)" >> rel_body.md
+          echo "" >> rel_body.md
+          echo "### Changelog" >> rel_body.md
+          if [ -f CHANGELOG.md ]; then
+            # 첫 번째 '## ' 섹션부터 다음 '## ' 전까지 추출
+            awk '/^## /{if (p) exit; p=1; print; next} p{print}' CHANGELOG.md >> rel_body.md || true
+          else
+            echo "(No CHANGELOG.md found)" >> rel_body.md
+          fi
+          echo "BODY_PATH=$PWD/rel_body.md" >> "$GITHUB_ENV"
+
+      # ✅ 원-스텝: 릴리스 생성/업데이트 + build.zip 업로드 + 본문 파일 적용
       - name: Publish release (create/update + upload)
         uses: ncipollo/release-action@v1
         with:
@@ -84,11 +101,7 @@ jobs:
           tag: ${{ env.TAG }}
           name: "Release ${{ env.TAG }} - ${{ env.REL_DATE }}"
           commitish: ${{ github.sha }}
-          body: |
-            ### Build
-            - Attached: build.zip
-            ### Release Date
-            - ${{ env.REL_DATE }} (KST)
+          bodyFile: ${{ env.BODY_PATH }}
           makeLatest: true
           allowUpdates: true
           replacesArtifacts: true
