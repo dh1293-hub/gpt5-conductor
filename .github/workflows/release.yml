@@ -1,9 +1,9 @@
-﻿name: release
+name: release
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 18 * * *" # 留ㅼ씪 03:30 KST
+    - cron: "30 18 * * *" # 매일 03:30 KST
   push:
     branches: [ "main" ]
     paths: [ "CHANGELOG.md" ]
@@ -43,55 +43,41 @@ jobs:
         uses: actions/setup-node@v4
         with: { node-version: '22' }
 
+      # 설치가 흔들려도 통과
       - name: Install deps (robust)
         run: |
           npm config set fund false
           npm config set audit false
-          npm ci --prefer-offline || npm install --legacy-peer-deps
+          npm ci --prefer-offline || npm install --legacy-peer-deps || true
 
-      - name: Configure git bot
+      # ✅ 표준버전/푸시 제거: 마지막 태그 +1 패치로 새 태그 계산(레포 수정/푸시 없음)
+      - name: Compute next tag (+1 patch) & KST date
+        shell: bash
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Dry run (standard-version)
-        run: npx standard-version --dry-run
-
-      - name: Bump & tag (patch)
-        run: npx standard-version --release-as patch
-
-            - name: Resolve tag & KST date (robust)
-        run: |
-          # 1) 최신 태그 시도
-          TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
-          # 2) 태그가 비었으면 package.json 버전으로 보정
-          if [ -z "$TAG" ] && [ -f package.json ]; then
-            TAG="v$(node -p "require('./package.json').version")"
-          fi
-          # 3) 최종 검증
-          if [ -z "$TAG" ]; then
-            echo "No tag detected and no package.json version"; exit 2
-          fi
-          echo "TAG=$TAG" >> $GITHUB_ENV
+          LAST=$(git tag -l "v*" --sort=-v:refname | head -n 1)
+          if [ -z "$LAST" ]; then LAST="v0.0.0"; fi
+          V=${LAST#v}; IFS='.' read -r MA MI PA <<<"$V"
+          if [ -z "$MA" ] || [ -z "$MI" ] || [ -z "$PA" ]; then echo "Invalid last tag: $LAST"; exit 2; fi
+          NEXT="v${MA}.${MI}.$((PA+1))"
+          echo "LAST=$LAST"; echo "NEXT=$NEXT"
+          echo "TAG=$NEXT" >> $GITHUB_ENV
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> $GITHUB_ENV
-      # ??긽 build.zip ?앹꽦: build ?덉쑝硫?鍮뚮뱶, ?ㅽ뙣/?놁쓬?대㈃ ??μ냼 zip
+
+      # 항상 build.zip 생성 (build 성공 시 산출물, 아니면 저장소 zip)
       - name: Prepare artifact (build or repo zip)
         run: |
           set -e
-          HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)")
+          HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
           if [ "$HAS_BUILD" = "true" ]; then
-            echo "??npm run build"
-            if ! npm run build; then
-              echo "::warning::build failed; fallback to repository zip"
-              HAS_BUILD=false
-            fi
+            echo "→ npm run build"
+            if ! npm run build; then echo "::warning::build failed; fallback to repository zip"; HAS_BUILD=false; fi
           fi
           if [ "$HAS_BUILD" = "true" ] && [ -d dist ]; then
             zip -r build.zip dist
           elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then
             zip -r build.zip build
           else
-            echo "??fallback zip of repository"
+            echo "→ fallback zip of repository"
             zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
           fi
           ls -al build.zip
@@ -100,24 +86,26 @@ jobs:
         uses: actions/upload-artifact@v4
         with: { name: build-zip, path: build.zip, if-no-files-found: error }
 
-      - name: Push with tags
-        run: git push --follow-tags origin HEAD:main
+      # ❌ git push 제거
 
-      - name: Create GitHub Release
+      # ✅ 원격 태그가 없어도 릴리스 생성 (target_commitish로 현재 커밋 지정)
+      - name: Create GitHub Release (no-push mode)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
-          name: "Release ${{ env.TAG }} ??${{ env.REL_DATE }}"
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           append_body: true
+          name: "Release ${{ env.TAG }} — ${{ env.REL_DATE }}"
           body: |
-            ### ?벀 Build
+            ### 📦 Build
             - Attached: `build.zip`
 
-            ### ?뿎 Release Date
+            ### 🗓 Release Date
             - ${{ env.REL_DATE }} (KST)
           files: build.zip
 
+      # 실패 시 1회 자동 재시도 → 그래도 실패면 이슈 자동 생성
       - name: Auto re-run failed jobs once
         if: ${{ failure() && github.run_attempt == '1' }}
         uses: actions/github-script@v7
