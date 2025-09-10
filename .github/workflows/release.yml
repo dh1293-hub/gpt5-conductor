@@ -1,4 +1,5 @@
 name: release
+
 on:
   workflow_dispatch:
     inputs:
@@ -7,23 +8,23 @@ on:
         required: false
         default: patch
         type: choice
-        options: [patch, minor]
+        options:
+          - patch
+          - minor
       prerelease:
         description: "Mark as pre-release (rc.N)"
         required: false
         default: false
         type: boolean
   push:
-    branches: [main]
-    paths: [CHANGELOG.md]
+    branches:
+      - main
+    paths:
+      - CHANGELOG.md
 
-permissions:contents: write
+permissions:
+  contents: write
   actions: write
-  issues: write
-
-concurrency:
-  group: "release-${{ github.ref }}"
-  cancel-in-progress: true
 
 jobs:
   release:
@@ -96,7 +97,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          # 1) 揶쎛?館釉???슢諭?????          HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
+          # 1) ?띠럾??繞③뇡?????キ?????          HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
           if [ "$HAS_BUILD" = "true" ]; then
             npm run build || HAS_BUILD=false
           fi
@@ -105,11 +106,11 @@ jobs:
           elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then
             zip -r build.zip build
           else
-            # ??슢諭???곸벉 ?????關??zip
+            # ????キ???怨몃쾳 ????????zip
             zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
           fi
 
-          # 2) 筌ㅼ뮇????由?5KB) 揶쎛?? ??댭??臾? zip???????關??zip嚥???筌?          MIN=5120
+          # 2) 嶺뚣끉裕??????5KB) ?띠럾??? ??????? zip???????????zip????嶺?          MIN=5120
           SIZE=$(stat -c%s build.zip)
           if [ "${SIZE:-0}" -lt "$MIN" ]; then
             echo "[warn] build.zip too small (${SIZE}B) -> fallback to repo zip"
@@ -192,7 +193,7 @@ jobs:
                 `- Actor: ${context.actor}`,
                 `- Commit: ${context.sha}`,
                 '',
-                '?얜챷苑? docs/RELEASES.md',
+                '??쒖굣?? docs/RELEASES.md',
               ].join('\n'),
               labels: ['release','failed']
             })
