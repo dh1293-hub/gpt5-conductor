@@ -3,14 +3,11 @@ name: release
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-    paths:
-      - CHANGELOG.md
+    branches: [ main ]
+    paths: [ CHANGELOG.md ]
 
 permissions:
   contents: write
-  actions: write
 
 jobs:
   sanity:
@@ -19,5 +16,23 @@ jobs:
       - name: Show environment
         run: |
           echo "Workflow is valid and running."
-          echo "GITHUB_REF: "
-          echo "GITHUB_SHA: "
+          echo "GITHUB_REF="
+          echo "GITHUB_SHA="
+
+  build:
+    needs: sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare files
+        run: |
+          mkdir -p dist
+          echo "Build at 2025-09-10T15:07:39Z" > dist/BUILD_INFO.txt
+      - name: Create build.zip
+        run: zip -r build.zip dist
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build.zip
+          path: build.zip
+          if-no-files-found: error
