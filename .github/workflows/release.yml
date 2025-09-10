@@ -3,7 +3,7 @@ name: release
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 18 * * *'   # 매일 03:30 KST
+    - cron: '30 18 * * *'
   push:
     branches:
       - main
@@ -16,12 +16,11 @@ permissions:
   issues: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: "release-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
   release:
-    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, 'chore(release)') }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -31,16 +30,8 @@ jobs:
           fetch-depth: 0
 
       - name: Print run URL
-        run: echo "Run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-
-      - name: Add run link to Job Summary
-        uses: actions/github-script@v7
-        env:
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        with:
-          script: |
-            await core.summary.addHeading('Release run')
-              .addLink('Open this run', process.env.RUN_URL).write()
+        run: |
+          echo "Run URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Ensure zip is available
         run: |
@@ -53,7 +44,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install deps (robust)
+      - name: Install deps (best-effort)
         run: |
           npm config set fund false
           npm config set audit false
@@ -63,79 +54,42 @@ jobs:
         shell: bash
         run: |
           LAST=$(git tag -l "v*" --sort=-v:refname | head -n 1)
-          if [ -z "$LAST" ]; then LAST="v0.0.0"; fi
-          V=${LAST#v}
-          IFS='.' read -r MA MI PA <<<"$V"
-          if [ -z "$MA" ] || [ -z "$MI" ] || [ -z "$PA" ]; then
-            echo "Invalid last tag: $LAST"; exit 2
-          fi
-          NEXT="v${MA}.${MI}.$((PA+1))"
-          echo "LAST=$LAST"; echo "NEXT=$NEXT"
-          echo "TAG=$NEXT" >> $GITHUB_ENV
-          echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> $GITHUB_ENV
+          [ -z "$LAST" ] && LAST="v0.0.0"
+          V=${LAST#v}; IFS='.' read -r MA MI PA <<<"$V"
+          NEXT="v${MA:-0}.${MI:-0}.$(( ${PA:-0} + 1 ))"
+          echo "TAG=$NEXT" >> "$GITHUB_ENV"
+          echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> "$GITHUB_ENV"
 
-      - name: Prepare artifact (build or repo zip)
+      - name: Build or fallback zip
         shell: bash
         run: |
           set -e
           HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
           if [ "$HAS_BUILD" = "true" ]; then
-            echo "→ npm run build"
-            if ! npm run build; then
-              echo "::warning::build failed; fallback to repository zip"
-              HAS_BUILD=false
-            fi
+            npm run build || HAS_BUILD=false
           fi
           if [ "$HAS_BUILD" = "true" ] && [ -d dist ]; then
             zip -r build.zip dist
           elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then
             zip -r build.zip build
           else
-            echo "→ fallback zip of repository"
             zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
           fi
-          echo "BUILD_PATH=$(pwd)/build.zip" >> $GITHUB_ENV
-          ls -al build.zip
+          echo "BUILD_PATH=$PWD/build.zip" >> "$GITHUB_ENV"
 
-      # ✅ 한 스텝으로 릴리스 생성/업데이트 + build.zip 업로드
       - name: Publish release (create/update + upload)
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.TAG }}
-          name: Release ${{ env.TAG }} — ${{ env.REL_DATE }}
+          name: "Release ${{ env.TAG }} - ${{ env.REL_DATE }}"
           commitish: ${{ github.sha }}
           body: |
-            ### 📦 Build
-            - Attached: `build.zip`
-
-            ### 🗓 Release Date
+            ### Build
+            - Attached: build.zip
+            ### Release Date
             - ${{ env.REL_DATE }} (KST)
           makeLatest: true
           allowUpdates: true
           replacesArtifacts: true
           artifacts: ${{ env.BUILD_PATH }}
-
-      - name: Auto re-run failed jobs once
-        if: ${{ failure() && github.run_attempt == '1' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.actions.reRunWorkflowFailedJobs({
-              owner: context.repo.owner, repo: context.repo.repo, run_id: context.runId
-            })
-            core.notice('Triggered auto re-run for failed jobs (attempt 2/2).')
-
-      - name: Open failure issue with run link
-        if: ${{ failure() && github.run_attempt != '1' }}
-        uses: actions/github-script@v7
-        env:
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        with:
-          script: |
-            const title = `Release workflow failed (attempt ${process.env.GITHUB_RUN_ATTEMPT})`;
-            const body  = `**Run**: ${process.env.RUN_URL}\n**Ref**: ${context.ref}\n**Actor**: ${context.actor}\n**Commit**: ${context.sha}`;
-            await github.rest.issues.create({
-              owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['release','failed']
-            })
-            core.error('Opened issue for failed release run.')
