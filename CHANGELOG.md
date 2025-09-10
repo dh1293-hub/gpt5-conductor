@@ -62,3 +62,5 @@ All notable changes to this project will be documented in this file.
 <!-- trigger release with changelog 2025-09-10T12:07:19 -->
 
 <!-- trigger release with bump-policy 2025-09-10T12:16:00 -->
+
+<!-- trigger release with rc toggle 2025-09-10T12:19:11 -->
