@@ -35,13 +35,6 @@ $notesPath = node .\scripts\acl\release-notes.mjs --tag=$tag
 if (-not (Test-Path $notesPath)) { throw "notes not found: $notesPath" }
 Write-Host ("[info] notes: {0}" -f $notesPath)
 
-# create/edit release title
-$repoSlug = (git config --get remote.origin.url) -replace '.*github.com[:/]', '' -replace '\.git$',''
-$exists = $false
-try { gh release view $tag | Out-Null; $exists = $true } catch { $exists = $false }
-if ($exists) { gh release edit $tag -t ("gpt5-conductor {0}" -f $tag) --latest | Out-Null }
-else { gh release create $tag -t ("gpt5-conductor {0}" -f $tag) --latest --verify-tag | Out-Null }
-
 # normalize helper
 function Normalize([string]$s) {
   if ($null -eq $s) { return "" }
@@ -49,20 +42,36 @@ function Normalize([string]$s) {
   $t = [regex]::Replace($t, "\s+$", "")
   return $t + "`n"
 }
-
-# patch release body exactly with normalized content (UTF-8 no BOM)
 $localN = Normalize (Get-Content $notesPath -Raw)
-$rel   = gh api "repos/$repoSlug/releases/tags/$tag" | ConvertFrom-Json
-$relId = $rel.id
-$tmpJson  = Join-Path $env:TEMP ("body_{0}.json" -f ($tag -replace '[^\w\.-]','_'))
-$payload  = @{ body = $localN } | ConvertTo-Json -Compress
-$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[IO.File]::WriteAllText($tmpJson, $payload, $utf8NoBom)
-gh api --method PATCH `
-  -H "Accept: application/vnd.github+json" `
-  -H "Content-Type: application/json; charset=utf-8" `
-  "repos/$repoSlug/releases/$relId" `
-  --input "$tmpJson" | Out-Null
+
+# ensure release exists (via API if missing)
+$repoSlug = (git config --get remote.origin.url) -replace '.*github.com[:/]', '' -replace '\.git$',''
+$release = $null
+try { $release = gh api "repos/$repoSlug/releases/tags/$tag" | ConvertFrom-Json } catch {}
+
+if (-not $release) {
+  Write-Host "[info] release not found → creating via API"
+  $payload = @{
+    tag_name    = $tag
+    name        = ("gpt5-conductor {0}" -f $tag)
+    body        = $localN
+    draft       = $false
+    prerelease  = $false
+    make_latest = "true"
+  } | ConvertTo-Json -Compress
+  $tmpCreate = Join-Path $env:TEMP ("rel_create_{0}.json" -f ($tag -replace '[^\w\.-]','_'))
+  [IO.File]::WriteAllText($tmpCreate, $payload, [System.Text.UTF8Encoding]::new($false))
+  $release = gh api --method POST "repos/$repoSlug/releases" --input "$tmpCreate" | ConvertFrom-Json
+  Write-Host ("[info] created release id={0}" -f $release.id)
+} else {
+  Write-Host "[info] release exists"
+}
+
+# patch exact body (normalized, UTF-8 no BOM)
+$patchJson = @{ body = $localN } | ConvertTo-Json -Compress
+$tmpPatch  = Join-Path $env:TEMP ("rel_patch_{0}.json" -f ($tag -replace '[^\w\.-]','_'))
+[IO.File]::WriteAllText($tmpPatch, $patchJson, [System.Text.UTF8Encoding]::new($false))
+gh api --method PATCH "repos/$repoSlug/releases/$($release.id)" --input "$tmpPatch" | Out-Null
 
 # verify
 $rel2    = gh api "repos/$repoSlug/releases/tags/$tag" | ConvertFrom-Json
@@ -72,6 +81,5 @@ if ($localN -eq $remoteN) {
 } else {
   Write-Host "`nFAIL release body differs; open web to check: gh release view $tag --web"
 }
-
 Write-Host ("`nDONE tag: {0}" -f $tag)
 Write-Host ("open: gh release view {0} --web" -f $tag)
