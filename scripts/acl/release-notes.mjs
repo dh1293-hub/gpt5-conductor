@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/acl/release-notes.mjs — v1.0 (ACL Adapter + Fallback)
 // Contract:
 //   input : --tag=<vX.Y.Z> (optional), --out=<path> (optional)
@@ -18,8 +18,17 @@ function prevTag(curr){ const tags = tagList(); if(!curr) return tags.length>1?t
 
 function extractFromChangelog(ver){
   try{
-    const cl = readFileSync("CHANGELOG.md","utf8");
-    const rx = new RegExp("^\\s*#{2,6}\\s*\\[?"+esc(ver)+"\\]?\\s*(?:\\([^)]*\\))?\\s*$[\\r\\n]+([\\s\\S]*?)(?=^\\s*#{2,6}\\s|\\Z)", "m");
+    const cl = readFileSync("CHANGELOG.md","utf8").replace(/\r/g, "");
+    const rx = new RegExp(
+      "^\\s*#{2,6}\\s*\\[?"+esc(ver)+"\\]?\\s*(?:\\([^)]*\\))?\\s*$\\n" +
+      "([\\s\\S]*?)" +
+      "(?=^\\s*#{2,6}\\s|\\s*\\Z)",
+      "m"
+    );
+    const m = cl.match(rx);
+    return m ? m[1].trim() : null;
+  } catch { return null; }
+}\\s*\\[?"+esc(ver)+"\\]?\\s*(?:\\([^)]*\\))?\\s*$[\\r\\n]+([\\s\\S]*?)(?=^\\s*#{2,6}\\s|\\Z)", "m");
     const m = cl.match(rx);
     return m ? m[1].trim() : null;
   } catch { return null; }
