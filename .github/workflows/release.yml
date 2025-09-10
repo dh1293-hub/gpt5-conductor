@@ -1,9 +1,9 @@
-name: release
+﻿name: release
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 18 * * *" # 매일 03:30 KST
+    - cron: "30 18 * * *" # 留ㅼ씪 03:30 KST
   push:
     branches: [ "main" ]
     paths: [ "CHANGELOG.md" ]
@@ -60,18 +60,27 @@ jobs:
       - name: Bump & tag (patch)
         run: npx standard-version --release-as patch
 
-      - name: Resolve tag & KST date
+            - name: Resolve tag & KST date (robust)
         run: |
-          echo "TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+          # 1) 최신 태그 시도
+          TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          # 2) 태그가 비었으면 package.json 버전으로 보정
+          if [ -z "$TAG" ] && [ -f package.json ]; then
+            TAG="v$(node -p "require('./package.json').version")"
+          fi
+          # 3) 최종 검증
+          if [ -z "$TAG" ]; then
+            echo "No tag detected and no package.json version"; exit 2
+          fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> $GITHUB_ENV
-
-      # 항상 build.zip 생성: build 있으면 빌드, 실패/없음이면 저장소 zip
+      # ??긽 build.zip ?앹꽦: build ?덉쑝硫?鍮뚮뱶, ?ㅽ뙣/?놁쓬?대㈃ ??μ냼 zip
       - name: Prepare artifact (build or repo zip)
         run: |
           set -e
           HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)")
           if [ "$HAS_BUILD" = "true" ]; then
-            echo "→ npm run build"
+            echo "??npm run build"
             if ! npm run build; then
               echo "::warning::build failed; fallback to repository zip"
               HAS_BUILD=false
@@ -82,7 +91,7 @@ jobs:
           elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then
             zip -r build.zip build
           else
-            echo "→ fallback zip of repository"
+            echo "??fallback zip of repository"
             zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
           fi
           ls -al build.zip
@@ -98,14 +107,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
-          name: "Release ${{ env.TAG }} — ${{ env.REL_DATE }}"
+          name: "Release ${{ env.TAG }} ??${{ env.REL_DATE }}"
           generate_release_notes: true
           append_body: true
           body: |
-            ### 📦 Build
+            ### ?벀 Build
             - Attached: `build.zip`
 
-            ### 🗓 Release Date
+            ### ?뿎 Release Date
             - ${{ env.REL_DATE }} (KST)
           files: build.zip
 
