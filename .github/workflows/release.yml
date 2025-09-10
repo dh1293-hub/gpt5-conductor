@@ -4,10 +4,12 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
-    paths: [ CHANGELOG.md ]
+    paths:
+      - CHANGELOG.md
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   sanity:
@@ -16,23 +18,36 @@ jobs:
       - name: Show environment
         run: |
           echo "Workflow is valid and running."
-          echo "GITHUB_REF="
-          echo "GITHUB_SHA="
+          echo "GITHUB_REF: $GITHUB_REF"
+          echo "GITHUB_SHA: $GITHUB_SHA"
 
-  build:
-    needs: sanity
-    runs-on: ubuntu-latest
-    steps:
       - uses: actions/checkout@v4
-      - name: Prepare files
+        with:
+          fetch-depth: 0
+
+      - name: Generate summary & bundle
         run: |
-          mkdir -p dist
-          echo "Build at 2025-09-10T15:07:39Z" > dist/BUILD_INFO.txt
-      - name: Create build.zip
-        run: zip -r build.zip dist
+          set -e
+          mkdir -p out
+          {
+            echo "# Release run"
+            echo "SHA=$GITHUB_SHA"
+            echo "REF=$GITHUB_REF"
+            echo "Actor=$GITHUB_ACTOR"
+            echo "Repo=$GITHUB_REPOSITORY"
+            echo "RunID=$GITHUB_RUN_ID"
+            echo ""
+            echo "## Files"
+          } > out/session-summary.md
+          cp -f CHANGELOG.md out/ 2>/dev/null || true
+          ls -al out >> out/session-summary.md
+          tar -czf run_bundle.tgz -C out .
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build.zip
-          path: build.zip
-          if-no-files-found: error
+          name: release-run
+          if-no-files-found: warn
+          path: |
+            out/**
+            run_bundle.tgz
