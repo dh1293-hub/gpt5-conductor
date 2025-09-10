@@ -2,9 +2,9 @@
 import process from "node:process";
 
 function parseArgs(argv){
-  const out = { method:"GET", url:"", headers:{}, data:null, timeout:15000 };
+  const out = { method:"GET", url:"", headers:{}, data:null, timeout:15000, ua:"kobong-cli/1.1" };
   for (const a of argv) {
-    if (a.startsWith("--url="))    out.url = a.slice(6);
+    if (a.startsWith("--url="))       out.url = a.slice(6);
     else if (a.startsWith("--method=")) out.method = a.slice(9).toUpperCase();
     else if (a.startsWith("--hdr=")) {
       const kv = a.slice(6).split(":");
@@ -14,9 +14,26 @@ function parseArgs(argv){
       out.data = a.slice(7);
       if (!out.headers["Content-Type"]) out.headers["Content-Type"] = "application/json; charset=utf-8";
     } else if (a.startsWith("--timeout=")) out.timeout = parseInt(a.slice(10),10);
+    else if (a.startsWith("--ua=")) out.ua = a.slice(5);
+    else if (a === "-h" || a === "--help") out.help = true;
   }
   if (!out.headers["Accept"]) out.headers["Accept"]="application/json";
+  if (!out.headers["User-Agent"]) out.headers["User-Agent"]=out.ua;
+
+  // Env token → Authorization (if not provided)
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || process.env.KOBONG_API_TOKEN;
+  if (token && !out.headers["Authorization"]) out.headers["Authorization"] = `Bearer ${token}`;
+
   return out;
+}
+
+function printHelp(){
+  console.error(`Usage:
+  node kobong-api.mjs --url=<URL> [--method=GET|POST|PUT|PATCH|DELETE]
+                      [--hdr=K:V] [--hdr=K:V]...
+                      [--data='JSON'] [--timeout=15000] [--ua='name/1.0']
+  Env tokens: GH_TOKEN | GITHUB_TOKEN | KOBONG_API_TOKEN (auto Authorization)
+`);
 }
 
 async function call({method,url,headers,data,timeout}){
@@ -40,12 +57,15 @@ async function call({method,url,headers,data,timeout}){
       process.exit(1);
     }
     console.log(out);
+  } catch (e){
+    console.error("[ERROR] request failed:", e.message || String(e));
+    process.exit(1);
   } finally { clearTimeout(t); }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.url) { console.error("Usage: kobong-api.mjs --url=... [--method=GET|POST|...] [--hdr=K:V] [--data=JSON] [--timeout=15000]"); process.exit(2); }
+  if (args.help || !args.url) { printHelp(); process.exit(args.url ? 0 : 2); }
   call(args);
 }
 
