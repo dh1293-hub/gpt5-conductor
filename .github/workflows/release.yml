@@ -8,21 +8,17 @@ on:
         required: false
         default: patch
         type: choice
-        options:
-          - patch
-          - minor
+        options: [patch, minor]
       prerelease:
         description: "Mark as pre-release (rc.N)"
         required: false
         default: false
         type: boolean
   schedule:
-    - cron: '30 18 * * *'
+    - cron: "30 18 * * *"
   push:
-    branches:
-      - main
-    paths:
-      - CHANGELOG.md
+    branches: [main]
+    paths: [CHANGELOG.md]
 
 permissions:
   contents: write
@@ -50,20 +46,16 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          echo "## Env"
           node -v || true
           npm -v || true
           uname -a || true
-          echo ""
-          echo "## Git"
           git log -1 --oneline || true
           git describe --tags --abbrev=0 2>/dev/null || true
           git status -sb || true
-          echo ""
-          echo "## Files(top)"
           ls -al | head -n 200 || true
 
       - name: Ensure zip is available
+        shell: bash
         run: |
           if ! command -v zip >/dev/null 2>&1; then
             sudo apt-get update && sudo apt-get install -y zip
@@ -72,23 +64,23 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
 
       - name: Install deps (best-effort)
+        shell: bash
         run: |
           npm config set fund false
           npm config set audit false
           npm ci --prefer-offline || npm install --legacy-peer-deps || true
 
-      - name: Compute next tag (BUMP=${{ env.BUMP }}, PRERELEASE=${{ env.PRERELEASE }}) & KST date
+      - name: Compute next tag & KST date
         shell: bash
         run: |
           set -e
           LAST=$(git tag -l "v*" --sort=-v:refname | head -n 1)
           [ -z "$LAST" ] && LAST="v0.0.0"
           V=${LAST#v}; IFS='.' read -r MA MI PA <<<"$V"
-          BUMP="${BUMP:-patch}"
-          case "$BUMP" in
+          case "${BUMP:-patch}" in
             minor) MI=$(( ${MI:-0} + 1 )); PA=0 ;;
             *)     PA=$(( ${PA:-0} + 1 )) ;;
           esac
@@ -96,12 +88,8 @@ jobs:
           if [ "${PRERELEASE}" = "true" ]; then
             preid="rc"
             LAST_RC=$(git tag -l "${BASE}-${preid}.*" --sort=-v:refname | head -n 1)
-            if [ -z "$LAST_RC" ]; then
-              TAG="${BASE}-${preid}.1"
-            else
-              N=${LAST_RC##*.}; [[ "$N" =~ ^[0-9]+$ ]] || N=0
-              TAG="${BASE}-${preid}.$((N+1))"
-            fi
+            if [ -z "$LAST_RC" ]; then TAG="${BASE}-${preid}.1"
+            else N=${LAST_RC##*.}; [[ "$N" =~ ^[0-9]+$ ]] || N=0; TAG="${BASE}-${preid}.$((N+1))"; fi
           else
             TAG="$BASE"
           fi
@@ -113,37 +101,33 @@ jobs:
         run: |
           set -e
           HAS_BUILD=$(node -p "!!((require('./package.json').scripts||{}).build)" 2>/dev/null || echo false)
-          if [ "$HAS_BUILD" = "true" ]; then
-            npm run build || HAS_BUILD=false
-          fi
-          if [ "$HAS_BUILD" = "true" ] && [ -d dist ]; then
-            zip -r build.zip dist
-          elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then
-            zip -r build.zip build
-          else
-            zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"
-          fi
+          if [ "$HAS_BUILD" = "true" ]; then npm run build || HAS_BUILD=false; fi
+          if [ "$HAS_BUILD" = "true" ] && [ -d dist ]; then zip -r build.zip dist
+          elif [ "$HAS_BUILD" = "true" ] && [ -d build ]; then zip -r build.zip build
+          else zip -r build.zip . -x ".git/*" ".github/*" "node_modules/*"; fi
           echo "BUILD_PATH=$PWD/build.zip" >> "$GITHUB_ENV"
 
-      - name: Generate release body (with latest CHANGELOG section)
+      - name: Generate release body
         shell: bash
         run: |
           set -e
-          echo "### Build" > rel_body.md
-          echo "- Attached: build.zip" >> rel_body.md
-          echo "" >> rel_body.md
-          echo "### Release Date" >> rel_body.md
-          echo "- $REL_DATE (KST)" >> rel_body.md
-          echo "" >> rel_body.md
-          echo "### Changelog" >> rel_body.md
-          if [ -f CHANGELOG.md ]; then
-            awk '/^## /{if (p) exit; p=1; print; next} p{print}' CHANGELOG.md >> rel_body.md || true
-          else
-            echo "(No CHANGELOG.md found)" >> rel_body.md
-          fi
+          {
+            echo "### Build"
+            echo "- Attached: build.zip"
+            echo
+            echo "### Release Date"
+            echo "- $REL_DATE (KST)"
+            echo
+            echo "### Changelog"
+            if [ -f CHANGELOG.md ]; then
+              awk '/^## /{if (p) exit; p=1; print; next} p{print}' CHANGELOG.md || true
+            else
+              echo "(No CHANGELOG.md found)"
+            fi
+          } > rel_body.md
           echo "BODY_PATH=$PWD/rel_body.md" >> "$GITHUB_ENV"
 
-      - name: Publish release (create/update + upload)
+      - name: Publish release
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -165,9 +149,8 @@ jobs:
             await github.rest.actions.reRunWorkflowFailedJobs({
               owner: context.repo.owner, repo: context.repo.repo, run_id: context.runId
             })
-            core.notice('Triggered auto re-run (attempt 2/2).')
 
-      - name: Open failure issue (with run link)
+      - name: Open failure issue
         if: ${{ failure() }}
         uses: actions/github-script@v7
         env:
@@ -175,18 +158,18 @@ jobs:
           TAG: ${{ env.TAG }}
         with:
           script: |
-            const title = `Release failed: ${process.env.TAG}`;
-            const body  = [
-              '### ❌ Release workflow failed',
-              `- Run: ${process.env.RUN_URL}`,
-              `- Tag: ${process.env.TAG}`,
-              `- Ref: ${context.ref}`,
-              `- Actor: ${context.actor}`,
-              `- Commit: ${context.sha}`,
-              '',
-              '문서: docs/RELEASES.md',
-            ].join('\n');
             await github.rest.issues.create({
               owner: context.repo.owner, repo: context.repo.repo,
-              title, body, labels: ['release','failed']
+              title: `Release failed: ${process.env.TAG}`,
+              body: [
+                '### ❌ Release workflow failed',
+                `- Run: ${process.env.RUN_URL}`,
+                `- Tag: ${process.env.TAG}`,
+                `- Ref: ${context.ref}`,
+                `- Actor: ${context.actor}`,
+                `- Commit: ${context.sha}`,
+                '',
+                '문서: docs/RELEASES.md',
+              ].join('\n'),
+              labels: ['release','failed']
             })
