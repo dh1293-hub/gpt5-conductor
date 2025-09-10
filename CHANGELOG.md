@@ -44,3 +44,5 @@ All notable changes to this project will be documented in this file.
 <!-- trigger release safe-mode (abs) 2025-09-10T10:18:53 -->
 
 <!-- trigger release tag-fix 2025-09-10T10:23:38 -->
+
+<!-- trigger release no-push 2025-09-10T10:27:42 -->
