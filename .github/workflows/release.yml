@@ -11,6 +11,11 @@ on:
         options:
           - patch
           - minor
+      prerelease:
+        description: "Mark as pre-release (rc.N)"
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: '30 18 * * *'
   push:
@@ -34,6 +39,7 @@ jobs:
     timeout-minutes: 25
     env:
       BUMP: ${{ inputs.bump_level || 'patch' }}
+      PRERELEASE: ${{ inputs.prerelease || 'false' }}
     steps:
       - name: Checkout (full history for tags)
         uses: actions/checkout@v4
@@ -57,7 +63,7 @@ jobs:
           npm config set audit false
           npm ci --prefer-offline || npm install --legacy-peer-deps || true
 
-      - name: Compute next tag (BUMP=${{ env.BUMP }}) & KST date
+      - name: Compute next tag (BUMP=${{ env.BUMP }}, PRERELEASE=${{ env.PRERELEASE }}) & KST date
         shell: bash
         run: |
           set -e
@@ -69,9 +75,21 @@ jobs:
             minor) MI=$(( ${MI:-0} + 1 )); PA=0 ;;
             *)     PA=$(( ${PA:-0} + 1 )) ;;
           esac
-          NEXT="v${MA:-0}.${MI:-0}.${PA:-0}"
-          echo "LAST=$LAST  →  NEXT=$NEXT (bump=$BUMP)"
-          echo "TAG=$NEXT" >> "$GITHUB_ENV"
+          BASE="v${MA:-0}.${MI:-0}.${PA:-0}"
+          if [ "${PRERELEASE}" = "true" ]; then
+            preid="rc"
+            LAST_RC=$(git tag -l "${BASE}-${preid}.*" --sort=-v:refname | head -n 1)
+            if [ -z "$LAST_RC" ]; then
+              TAG="${BASE}-${preid}.1"
+            else
+              N=${LAST_RC##*.}; [[ "$N" =~ ^[0-9]+$ ]] || N=0
+              TAG="${BASE}-${preid}.$((N+1))"
+            fi
+          else
+            TAG="$BASE"
+          fi
+          echo "LAST=$LAST  →  TAG=$TAG"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> "$GITHUB_ENV"
 
       - name: Build or fallback zip
@@ -117,6 +135,7 @@ jobs:
           name: "Release ${{ env.TAG }} - ${{ env.REL_DATE }}"
           commitish: ${{ github.sha }}
           bodyFile: ${{ env.BODY_PATH }}
+          prerelease: ${{ inputs.prerelease }}
           makeLatest: true
           allowUpdates: true
           replacesArtifacts: true
