@@ -55,7 +55,7 @@ jobs:
           npm config set audit false
           npm ci --prefer-offline || npm install --legacy-peer-deps || true
 
-      # 마지막 태그 +1 패치(푸시 없이)
+      # 마지막 태그 +1 (푸시 없음)
       - name: Compute next tag (+1 patch) & KST date
         shell: bash
         run: |
@@ -68,7 +68,7 @@ jobs:
           echo "TAG=$NEXT" >> $GITHUB_ENV
           echo "REL_DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')" >> $GITHUB_ENV
 
-      # 항상 build.zip 만들기
+      # 항상 build.zip 생성 (빌드 성공 시 산출물, 아니면 저장소 zip)
       - name: Prepare artifact (build or repo zip)
         shell: bash
         run: |
@@ -89,60 +89,35 @@ jobs:
           echo "BUILD_PATH=$(pwd)/build.zip" >> $GITHUB_ENV
           ls -al build.zip
 
-      # 1) 만들기 시도(동일 태그가 이미 릴리스면 422) → 실패해도 계속
-      - name: Try create release
-        id: create
-        continue-on-error: true
-        uses: actions/create-release@v1
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+      # ✅ 여기 하나로 끝: 릴리스 생성/업데이트 + build.zip 업로드
+      - name: Publish release (create/update + upload)
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ env.TAG }}
-          release_name: "Release ${{ env.TAG }} — ${{ env.REL_DATE }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ env.TAG }}
+          name: "Release ${{ env.TAG }} — ${{ env.REL_DATE }}"
+          commitish: ${{ github.sha }}
           body: |
             ### 📦 Build
             - Attached: `build.zip`
 
             ### 🗓 Release Date
             - ${{ env.REL_DATE }} (KST)
-          draft: false
-          prerelease: false
-          target_commitish: ${{ github.sha }}
+          makeLatest: true
+          allowUpdates: true
+          replacesArtifacts: true
+          artifacts: ${{ env.BUILD_PATH }}
+          artifactErrorsFailBuild: true
 
-      # 2) 업로드 URL 확보: 새로 만든 릴리스 or 기존 릴리스 재사용
-      - name: Resolve upload_url (create or reuse)
-        id: resolve_upload
-        uses: actions/github-script@v7
-        env:
-          CREATED_UPLOAD: ${{ steps.create.outputs.upload_url }}
-          TAG: ${{ env.TAG }}
-        with:
-          script: |
-            if (process.env.CREATED_UPLOAD) {
-              core.setOutput('upload_url', process.env.CREATED_UPLOAD)
-            } else {
-              const { data } = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner, repo: context.repo.repo, tag: process.env.TAG
-              })
-              core.setOutput('upload_url', data.upload_url)
-            }
-
-      # 3) build.zip 업로드
-      - name: Upload build.zip asset
-        uses: actions/upload-release-asset@v1
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
-        with:
-          upload_url: ${{ steps.resolve_upload.outputs.upload_url }}
-          asset_path: ${{ env.BUILD_PATH }}
-          asset_name: build.zip
-          asset_content_type: application/zip
-
-      # 실패 자동 재시도 / 이슈 생성
+      # 실패 자동 재시도 / 이슈 자동 생성
       - name: Auto re-run failed jobs once
         if: ${{ failure() && github.run_attempt == '1' }}
         uses: actions/github-script@v7
         with:
           script: |
-            await github.rest.actions.reRunWorkflowFailedJobs({ owner: context.repo.owner, repo: context.repo.repo, run_id: context.runId })
+            await github.rest.actions.reRunWorkflowFailedJobs({
+              owner: context.repo.owner, repo: context.repo.repo, run_id: context.runId
+            })
             core.notice('Triggered auto re-run for failed jobs (attempt 2/2).')
 
       - name: Open failure issue with run link
@@ -155,7 +130,6 @@ jobs:
             const title = `Release workflow failed (attempt ${process.env.GITHUB_RUN_ATTEMPT})`;
             const body  = `**Run**: ${process.env.RUN_URL}\n**Ref**: ${context.ref}\n**Actor**: ${context.actor}\n**Commit**: ${context.sha}`;
             await github.rest.issues.create({
-              owner: context.repo.owner, repo: context.repo.repo, title, body,
-              labels: ['release','failed']
+              owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['release','failed']
             })
             core.error('Opened issue for failed release run.')
