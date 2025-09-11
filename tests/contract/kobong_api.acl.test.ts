@@ -21,40 +21,11 @@ describe("kobong-api adapter (contract)", () => {
   });
 
   it("prints pretty JSON when response is application/json", async () => {
-  // mock fetch (JSON)
-  // @ts-ignore
-  globalThis.fetch = vi.fn(async (url: string, init: any) => {
-    const body = JSON.stringify({ echo: "ok" });
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: new Map([["content-type", "application/json"]]),
-      text: async () => JSON.stringify({
-        url,
-        method: init?.method,
-        headers: init?.headers,
-        body: init?.body,
-        received: { body }
-      }),
-    } as any;
-  });
-
-  const { default: call } = await loadAdapter();
-  await call({
-    method: "POST",
-    url: "https://example.com/echo",
-    headers: { "X-Trace": "abc" },
-    data: "{\"ping\":1}",
-    timeout: 1000,
-  });
-
-  const out = (logSpy.mock.calls[0]?.[0] as string) || "";
-  const obj = JSON.parse(out);
-  expect(obj.url).toBe("https://example.com/echo");
-  expect(obj.method).toBe("POST");
-  expect(obj.body).toBe("{\"ping\":1}");
-});return {
+    // mock fetch (JSON)
+    // @ts-ignore
+    globalThis.fetch = vi.fn(async (url: string, init: any) => {
+      const body = JSON.stringify({ echo: "ok" });
+      return {
         ok: true,
         status: 200,
         statusText: "OK",
@@ -74,14 +45,16 @@ describe("kobong-api adapter (contract)", () => {
       method: "POST",
       url: "https://example.com/echo",
       headers: { "X-Trace": "abc" },
-      data: '{"ping":1}',
+      data: "{\"ping\":1}",
       timeout: 1000,
     });
 
     const out = (logSpy.mock.calls[0]?.[0] as string) || "";
-    expect(out).toContain('"url": "https://example.com/echo"');
-    expect(out).toContain('"method": "POST"');
-    expect(out).toContain('"body": "{\"ping\":1}"'); // request body is an escaped JSON string in pretty-printed response
+    const obj = JSON.parse(out);
+    expect(obj.url).toBe("https://example.com/echo");
+    expect(obj.method).toBe("POST");
+    expect(obj.body).toBe("{\"ping\":1}");
+    expect(obj.headers["X-Trace"]).toBe("abc");
   });
 
   it("prints plain text when response is not JSON", async () => {
