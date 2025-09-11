@@ -13,11 +13,13 @@ export class CsvRenderer implements RenderPort {
     };
     const lines = [
       headers.join(","),
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...records.map(r => headers.map(h => escape((r as any)[h])).join(",")),
     ];
     return lines.join("\n");
   }
 }
+
 
 
 

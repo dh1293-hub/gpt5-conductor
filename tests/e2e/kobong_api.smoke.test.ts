@@ -23,8 +23,10 @@ it("E2E smoke: fetch repo json via kobong (app?뭦ort?뭝nfra)", async () => {
 
   expect(res.ok).toBe(true);
   expect(typeof res.json).toBe("object");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   const obj = res.json as any;
   expect(obj.full_name).toBe(slug);
 }, 20000);
+
 
 

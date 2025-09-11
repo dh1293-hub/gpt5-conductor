@@ -75,6 +75,7 @@ export function createJsonlLogger(opts?: JsonlLoggerOptions): LoggerPort {
       };
 
       if (!out.inputHash && out.meta && "input" in out.meta!) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
         try { out.inputHash = sha256((out.meta as any).input); } catch { /* noop */ }
       }
 
@@ -97,3 +98,4 @@ export function createJsonlLogger(opts?: JsonlLoggerOptions): LoggerPort {
 
   return logger;
 }
+

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import { LogEvent } from "../../src/contracts.logEvent";
 
 describe("contract: LogEvent", () => {
@@ -18,6 +18,7 @@ describe("contract: LogEvent", () => {
   });
 
   it("rejects invalid level", () => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bad: any = { 
       timestamp: "2025-01-01T00:00:00Z",
       level: "NOTICE",

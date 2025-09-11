@@ -23,6 +23,7 @@ describe("kobong-api adapter (contract)", () => {
   it("prints pretty JSON when response is application/json", async () => {
     // mock fetch (JSON)
     // @ts-expect-error -- lint gate
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
     globalThis.fetch = vi.fn(async (url: string, init: any) => {
       const body = JSON.stringify({ echo: "ok" });
       return {
@@ -37,6 +38,7 @@ describe("kobong-api adapter (contract)", () => {
           body: init?.body,
           received: { body }
         }),
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any;
     });
 
@@ -67,6 +69,7 @@ describe("kobong-api adapter (contract)", () => {
         statusText: "OK",
         headers: new Map([["content-type", "text/plain"]]),
         text: async () => "OK",
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any;
     });
 
@@ -83,3 +86,4 @@ describe("kobong-api adapter (contract)", () => {
     expect(out).toBe("OK");
   });
 });
+

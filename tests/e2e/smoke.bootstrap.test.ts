@@ -27,6 +27,7 @@ describe("E2E-SMOKE: bootstrap entry", () => {
     expect(content.length).toBeGreaterThan(0);
 
     const lastLine = content.split(/\r?\n/).at(-1)!;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
     let parsed: any;
     try {
       parsed = JSON.parse(lastLine.replace(/^\uFEFF/, ""));
@@ -47,3 +48,4 @@ describe("E2E-SMOKE: bootstrap entry", () => {
     }
   });
 });
+
