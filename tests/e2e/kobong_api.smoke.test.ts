@@ -5,7 +5,7 @@ import { kobongFetch } from "../../app/kobong_api";
 function repoSlug(): string {
   const url = execSync("git config --get remote.origin.url", { encoding: "utf8" }).trim();
   // e.g. https://github.com/owner/repo.git  or  git@github.com:owner/repo.git
-  const m = url.match(/github\.com[:/]([^/]+)/([^\.]+)(?:\.git)?$/i);
+  const m = url.match(/github\.com[:\/]([^\/]+)\/([^\.]+)(?:\.git)?$/i);
   if (!m) throw new Error("cannot parse remote.origin.url: " + url);
   return `${m[1]}/${m[2]}`;
 }
