@@ -50,10 +50,11 @@ jobs:
 
       - name: Run lint (non-blocking)
         run: npm run run-lint
-        continue-on-error: true
 
       - name: Build (tsc)
         run: npm run build
 
       - name: Run smoke (vitest e2e minimal)
         run: npm run run-smoke
+
+
