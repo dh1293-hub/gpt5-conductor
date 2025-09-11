@@ -5,6 +5,24 @@ import type { KobongApiPort, KobongRequest, KobongResponse } from "../../domain/
 
 const pexec = promisify(execFile);
 
+function tryParseJson(raw: string): unknown | undefined {
+  const tryOnce = (s: string) => { try { return JSON.parse(s); } catch { return undefined; } };
+  // 1) 그대로
+  let v = tryOnce(raw);
+  if (v !== undefined) return v;
+  // 2) BOM 제거
+  const noBom = raw.replace(/^\uFEFF/, "");
+  v = tryOnce(noBom);
+  if (v !== undefined) return v;
+  // 3) 앞뒤 잡소리 제거: 첫 '{' 또는 '['부터 끝까지 시도
+  const i = noBom.search(/[\{\[]/);
+  if (i >= 0) {
+    v = tryOnce(noBom.slice(i));
+    if (v !== undefined) return v;
+  }
+  return undefined;
+}
+
 export class KobongApiRestAdapter implements KobongApiPort {
   async request(req: KobongRequest): Promise<KobongResponse> {
     const cli = resolve("scripts/acl/kobong-api.mjs");
@@ -21,9 +39,8 @@ export class KobongApiRestAdapter implements KobongApiPort {
 
     try {
       const { stdout } = await pexec(process.execPath, [cli, ...args], { encoding: "utf8" });
-      const text = stdout.trim();
-      let json: unknown | undefined;
-      try { json = JSON.parse(text); } catch {}
+      const text = (stdout ?? "").trim();
+      const json = tryParseJson(text);
       return { ok: true, bodyText: text, json };
     } catch (e: any) {
       const stderr = e?.stderr?.toString?.() ?? String(e);
