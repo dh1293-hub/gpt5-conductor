@@ -7,20 +7,48 @@ const pexec = promisify(execFile);
 
 function tryParseJson(raw: string): unknown | undefined {
   const tryOnce = (s: string) => { try { return JSON.parse(s); } catch { return undefined; } };
-  // 1) 그대로
   let v = tryOnce(raw);
   if (v !== undefined) return v;
-  // 2) BOM 제거
   const noBom = raw.replace(/^\uFEFF/, "");
   v = tryOnce(noBom);
   if (v !== undefined) return v;
-  // 3) 앞뒤 잡소리 제거: 첫 '{' 또는 '['부터 끝까지 시도
   const i = noBom.search(/[\{\[]/);
   if (i >= 0) {
     v = tryOnce(noBom.slice(i));
     if (v !== undefined) return v;
   }
   return undefined;
+}
+
+function buildHeaders(given?: Record<string,string>): Record<string,string> {
+  const h: Record<string,string> = Object.assign({}, given || {});
+  if (!h["Accept"]) h["Accept"] = "application/json";
+  if (!h["User-Agent"]) h["User-Agent"] = "kobong-adapter/1.0";
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || process.env.KOBONG_API_TOKEN;
+  if (token && !h["Authorization"]) h["Authorization"] = `Bearer ${token}`;
+  return h;
+}
+
+async function directFetch(req: KobongRequest): Promise<KobongResponse> {
+  const headers = buildHeaders(req.headers);
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), req.timeoutMs ?? 15000);
+  try {
+    const res = await fetch(req.url, {
+      method: req.method || "GET",
+      headers,
+      body: req.data ?? null,
+      signal: ac.signal,
+    } as any);
+    const text = await res.text();
+    const json = tryParseJson(text);
+    if (!res.ok) {
+      return { ok: false, status: res.status, statusText: res.statusText, bodyText: text.trim() };
+    }
+    return { ok: true, bodyText: text.trim(), json };
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 export class KobongApiRestAdapter implements KobongApiPort {
@@ -31,20 +59,21 @@ export class KobongApiRestAdapter implements KobongApiPort {
     if (req.method) args.push(`--method=${req.method}`);
     if (req.timeoutMs) args.push(`--timeout=${req.timeoutMs}`);
     if (req.data != null) args.push(`--data=${req.data}`);
-    if (req.headers) {
-      for (const [k, v] of Object.entries(req.headers)) {
-        args.push(`--hdr=${k}:${v}`);
-      }
-    }
+    const headers = buildHeaders(req.headers);
+    for (const [k, v] of Object.entries(headers)) args.push(`--hdr=${k}:${v}`);
 
     try {
       const { stdout } = await pexec(process.execPath, [cli, ...args], { encoding: "utf8" });
       const text = (stdout ?? "").trim();
       const json = tryParseJson(text);
+      if (json === undefined || text.length === 0) {
+        // 폴백: 직접 fetch 재시도
+        return await directFetch(req);
+      }
       return { ok: true, bodyText: text, json };
     } catch (e: any) {
-      const stderr = e?.stderr?.toString?.() ?? String(e);
-      return { ok: false, status: undefined, statusText: "EXEC_ERROR", bodyText: stderr.trim() };
+      // exec 실패 시에도 폴백
+      return await directFetch(req);
     }
   }
 }
