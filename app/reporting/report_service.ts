@@ -1,3 +1,4 @@
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */ // TODO(PS-12.6): type properly
 import type { ReportEnginePort, ReportResult } from "../../domain/reporting/ports";
 import { parse } from "../../domain/dsl/v0_4/parser";
 

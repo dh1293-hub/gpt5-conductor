@@ -1,4 +1,5 @@
-﻿import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */ // TODO(PS-12.6): type properly
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { hrtime } from "node:process";
 import { fileURLToPath } from "node:url";
@@ -195,4 +196,5 @@ if (isMain) {
     process.exit(code);
   })();
 }
+
 

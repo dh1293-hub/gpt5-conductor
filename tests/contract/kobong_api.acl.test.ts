@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+﻿import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -16,13 +16,13 @@ describe("kobong-api adapter (contract)", () => {
 
   afterEach(() => {
     logSpy.mockRestore();
-    // @ts-ignore
+    // @ts-expect-error -- lint gate
     globalThis.fetch = undefined;
   });
 
   it("prints pretty JSON when response is application/json", async () => {
     // mock fetch (JSON)
-    // @ts-ignore
+    // @ts-expect-error -- lint gate
     globalThis.fetch = vi.fn(async (url: string, init: any) => {
       const body = JSON.stringify({ echo: "ok" });
       return {
@@ -59,7 +59,7 @@ describe("kobong-api adapter (contract)", () => {
 
   it("prints plain text when response is not JSON", async () => {
     // mock fetch (text/plain)
-    // @ts-ignore
+    // @ts-expect-error -- lint gate
     globalThis.fetch = vi.fn(async () => {
       return {
         ok: true,

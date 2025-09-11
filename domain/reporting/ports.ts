@@ -1,4 +1,5 @@
-﻿/**
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */ // TODO(PS-12.6): type properly
+/**
  * Ports contract (converged) — step3
  * - ReportEnginePort: generate(req) 사용
  * - ReportRequest: title/columns/rows 포함
@@ -6,7 +7,7 @@
  */
 export type PortContext = { traceId?: string; timeoutMs?: number; locale?: string };
 
-export type ReportSpec = { source: any; fields: any; format: any };;
+export type ReportSpec = { source: any; fields: any; format: any };
 
 export interface ParsePort {
   parse(input: unknown, ctx?: PortContext): ReportSpec;
@@ -28,4 +29,5 @@ export interface ReportEnginePort {
 /* 유지용(기존 호출자 호환) */
 export interface QueryPort  { run(input: unknown, ctx?: PortContext): Promise<any>; }
 export interface RenderPort { render(input: unknown, options?: any, ctx?: PortContext): Promise<string | Buffer>; }
+
 

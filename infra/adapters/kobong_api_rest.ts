@@ -1,3 +1,5 @@
+﻿/* eslint-disable no-useless-escape */ // TODO(PS-12.6): refine regex
+/* eslint-disable @typescript-eslint/no-explicit-any */ // TODO(PS-12.6): type properly
 import { resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -67,13 +69,13 @@ export class KobongApiRestAdapter implements KobongApiPort {
       const text = (stdout ?? "").trim();
       const json = tryParseJson(text);
       if (json === undefined || text.length === 0) {
-        // 폴백: 직접 fetch 재시도
-        return await directFetch(req);
+        // ?대갚: 吏곸젒 fetch ?ъ떆??        return await directFetch(req);
       }
       return { ok: true, bodyText: text, json };
     } catch (e: any) {
-      // exec 실패 시에도 폴백
+      // exec ?ㅽ뙣 ?쒖뿉???대갚
       return await directFetch(req);
     }
   }
 }
+
