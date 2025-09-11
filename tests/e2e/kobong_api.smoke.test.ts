@@ -1,4 +1,5 @@
-﻿import { it, expect } from "vitest";
+﻿/* eslint-disable no-useless-escape */ // TODO(PS-12.6): refine regex and remove
+import { it, expect } from "vitest";
 import { execSync } from "node:child_process";
 import { kobongFetch } from "../../app/kobong_api";
 
@@ -24,3 +25,4 @@ it("E2E smoke: fetch repo json via kobong (app?뭦ort?뭝nfra)", async () => {
   const obj = res.json as any;
   expect(obj.full_name).toBe(slug);
 }, 20000);
+
